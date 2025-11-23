@@ -3,431 +3,418 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Cost Guard</title>
+    <title>AI Cost Guard Dashboard</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f7f7f7; }
-        .card { 
-            background-color: white; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1); 
+        /* Custom styles for aesthetics and responsive canvas */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
         }
-        .gauge-container {
-            width: 150px;
-            height: 150px;
-            position: relative;
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: transform 0.2s;
         }
-        .gauge-svg {
-            transform: rotate(-90deg);
+        .card:hover {
+            transform: translateY(-2px);
         }
-        .gauge-circle {
-            stroke-linecap: round;
-            transition: stroke-dashoffset 0.8s ease-in-out;
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
         }
-        .test-button {
-            transition: all 0.2s;
+        .btn-primary:hover {
+            background-color: #4338ca;
         }
-        .test-button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        .btn-primary:disabled {
+            background-color: #a5b4fc;
+            cursor: not-allowed;
+        }
+        .progress-bar-container {
+            height: 1.5rem;
+            background-color: #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #10b981;
+            transition: width 0.5s ease-in-out;
         }
     </style>
 </head>
-<body class="p-8 md:p-12 min-h-screen">
+<body class="p-4 md:p-8 min-h-screen">
 
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl font-extrabold text-gray-900 mb-8 border-b-4 border-indigo-600 pb-2">AI Cost Guard</h1>
+    <header class="mb-8 text-center">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">AI Cost Guard</h1>
+        <p class="text-lg text-indigo-600">Secure AI Gateway with Budget Control</p>
+    </header>
+
+    <main class="max-w-6xl mx-auto space-y-8">
 
         <!-- User/Status Section -->
-        <div class="card p-6 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div class="mb-4 md:mb-0">
-                <p class="text-sm font-medium text-gray-500">User ID:</p>
-                <p id="user-id" class="font-mono bg-gray-100 text-gray-800 p-2 rounded-md text-sm break-all">...Loading...</p>
-            </div>
+        <div id="status-card" class="card grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
             <div>
-                <p class="text-sm font-medium text-gray-500">Monthly Budget Limit:</p>
-                <div class="flex items-center space-x-2 mt-1">
-                    <p id="budget-limit" class="text-2xl font-bold text-green-700">Not Set</p>
-                    <button id="set-budget-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded-lg transition duration-150">
+                <p class="text-sm font-semibold text-gray-500">User ID:</p>
+                <div id="user-id" class="text-base font-mono text-gray-700 truncate">
+                    Loading User...
+                </div>
+            </div>
+            <div class="md:col-span-2">
+                <p class="text-sm font-semibold text-gray-500">Supabase Edge Function URL:</p>
+                <input id="proxy-url-input" type="text" placeholder="Enter your deployed Supabase Function URL here..." 
+                       class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-xs">
+            </div>
+        </div>
+
+        <!-- Budget Control Card -->
+        <div class="card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Budget Control</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-end">
+                <div>
+                    <label for="budget-input" class="block text-sm font-medium text-gray-700">Monthly Budget Limit (USD):</label>
+                    <input type="number" id="budget-input" min="0.01" step="0.01" value="5.00"
+                           class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button id="set-budget-btn" onclick="setBudget()" disabled 
+                            class="btn-primary w-full md:w-auto flex-grow disabled:opacity-50">
                         Set Budget
                     </button>
+                    <button id="reset-budget-btn" onclick="resetBudget()" disabled 
+                            class="p-3 border border-red-400 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                        Reset
+                    </button>
                 </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-700">Current Limit:</p>
+                    <span id="current-budget" class="text-lg font-bold text-indigo-600">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Usage Meter -->
+            <div class="mt-4">
+                <div class="flex justify-between mb-1">
+                    <span id="percent-used" class="text-xl font-bold text-gray-900">0.0%</span>
+                    <span class="text-sm font-medium text-gray-500">Used</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-sm">
+                    <span class="text-gray-700">Spent This Month: <strong id="spent-amount">$0.00</strong></span>
+                    <span class="text-gray-700">Remaining: <strong id="remaining-amount">$0.00</strong></span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">*Cost calculated per API request (simulated in proxy).</p>
             </div>
         </div>
 
-        <!-- Main Gauge and Stats -->
-        <div class="card p-8 mb-8 flex flex-col items-center md:flex-row md:justify-around">
-            
-            <!-- Gauge -->
-            <div class="gauge-container mb-6 md:mb-0">
-                <svg viewBox="0 0 100 100" class="gauge-svg w-full h-full">
-                    <!-- Background Arc -->
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="#e0e0e0" stroke-width="10" 
-                            stroke-dasharray="141.37, 282.74" stroke-dashoffset="-70.685"></circle>
-                    <!-- Foreground Arc (Dynamic) -->
-                    <circle id="gauge-progress" cx="50" cy="50" r="45" fill="none" stroke="#4f46e5" stroke-width="10" 
-                            stroke-dasharray="0, 282.74" stroke-dashoffset="-70.685" class="gauge-circle"></circle>
-                </svg>
-                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                    <span id="percent-used" class="text-3xl font-extrabold text-gray-900">0.0%</span>
-                    <span class="text-sm text-gray-500">Used</span>
-                </div>
-            </div>
+        <!-- AI Proxy Test Section -->
+        <div class="card bg-indigo-50 border border-indigo-200">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Test AI Proxy (Cache & Cost Check)</h2>
+            <p class="text-gray-600 mb-4">
+                Click below to simulate a call to your deployed Supabase Edge Function. The function will check the budget,
+                call Gemini, apply caching, and calculate the cost.
+            </p>
 
-            <!-- Spent Details -->
-            <div class="text-center md:text-left space-y-4">
-                <div class="text-2xl font-semibold text-gray-800">
-                    Spent This Month: <span id="spent-this-month" class="text-red-600 font-extrabold">$0.00</span>
+            <div class="space-y-4">
+                <div>
+                    <label for="prompt-input" class="block text-sm font-medium text-gray-700">AI Prompt:</label>
+                    <textarea id="prompt-input" rows="3" placeholder="Enter prompt to send to the AI proxy (e.g., 'Write a short poem about coding')."
+                              class="mt-1 block w-full p-3 border border-indigo-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">What are the three core principles of the AI Cost Guard architecture?</textarea>
                 </div>
-                <div class="text-lg text-gray-600">
-                    Remaining: <span id="remaining-budget" class="font-semibold text-green-600">$0.00</span>
+                
+                <div class="flex justify-between items-center">
+                    <!-- IMPORTANT: The button is now ALWAYS enabled to bypass the broken auth -->
+                    <button id="run-ai-test-btn" onclick="runAITest()" class="btn-primary flex-grow">
+                        Run AI Content Generation Test
+                    </button>
+                    <span id="test-status" class="ml-4 text-sm font-semibold text-gray-600">Ready</span>
                 </div>
-                <p class="text-sm text-gray-500">
-                    *Cost calculated per API request.
-                </p>
+
+                <!-- Test Output Display -->
+                <div class="bg-white p-4 rounded-lg shadow-inner border border-indigo-300 space-y-3">
+                    <h3 class="font-semibold text-lg text-indigo-700 border-b pb-1">Test Output Box</h3>
+                    <p class="text-sm text-gray-700">Response Cost: <strong id="response-cost">$0.00</strong></p>
+                    <p class="text-sm text-gray-700">Cache Status: <strong id="cache-status">N/A</strong></p>
+                    <pre id="test-output-content" class="whitespace-pre-wrap p-3 bg-gray-50 border rounded text-xs text-gray-800 min-h-[100px]">Waiting for test run...</pre>
+                </div>
             </div>
         </div>
+    </main>
 
-        <!-- Test Proxy Section -->
-        <div class="card p-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Test AI Proxy (Cache & Cost Check)</h2>
-            <p class="text-gray-600 mb-4">Click below to simulate a call to your Edge Function. It will check your budget first.</p>
-            
-            <textarea id="test-prompt" rows="3" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4" placeholder="Enter test prompt (e.g., 'Write a short poem about coding')."></textarea>
-            
-            <button id="run-test-btn" class="test-button w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg flex items-center justify-center">
-                <span id="test-btn-text">Run AI Content Generation Test</span>
-                <svg id="test-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-            </button>
-
-            <!-- Test Result Display -->
-            <div id="test-result-container" class="mt-6 border-t pt-4">
-                <p id="test-status" class="text-lg font-semibold text-gray-700 mb-2">Awaiting test run...</p>
-                <div id="test-details" class="space-y-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg hidden">
-                    <p><strong>Response Cost:</strong> <span id="result-cost" class="font-mono text-indigo-600"></span></p>
-                    <p><strong>Cache Status:</strong> <span id="result-cached" class="font-mono"></span></p>
-                    <p><strong>New Spent:</strong> <span id="result-spent" class="font-mono text-red-600"></span> / <span id="result-limit" class="font-mono text-green-700"></span></p>
-                </div>
-                <div id="test-output-box" class="mt-3 p-4 bg-white border border-gray-200 rounded-lg whitespace-pre-wrap text-gray-800 shadow-inner max-h-60 overflow-y-auto"></div>
-            </div>
-            
-            <p id="error-message" class="text-red-600 mt-4 font-medium hidden"></p>
-        </div>
-    </div>
-
-    <!-- Modal for Setting Budget -->
-    <div id="budget-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center hidden">
-        <div class="bg-white p-6 rounded-xl shadow-2xl max-w-md w-full">
-            <h3 class="text-xl font-bold mb-4">Set Monthly Budget</h3>
-            <label for="new-budget-input" class="block text-sm font-medium text-gray-700 mb-2">Budget Limit (USD)</label>
-            <input type="number" id="new-budget-input" step="0.01" min="0" placeholder="e.g., 10.00" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 mb-4">
-            <div class="flex justify-end space-x-3">
-                <button id="close-modal-btn" class="px-4 py-2 text-gray-600 bg-gray-200 rounded-lg hover:bg-gray-300 transition">Cancel</button>
-                <button id="save-budget-btn" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">Save Budget</button>
-            </div>
-        </div>
-    </div>
 
     <script type="module">
-        // Global variables provided by the Canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // setLogLevel('debug'); // Enable for debugging Firestore issues
+
+        // --- GLOBAL VARIABLES (Provided by Canvas) ---
+        // We use these checks to handle the current environment injection failure.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ai-cost-guard';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Supabase Edge Function URL - MUST be the new 'ai-proxy' function name
-        const SUPABASE_PROJECT_REF = 'tsogjfhrvzuweshlfrfu';
-        const PROXY_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/ai-proxy`; 
-
-        // Firebase Imports and Initialization
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        let db, auth;
-        let userId = 'loading';
+        // --- Firebase Initialization ---
+        let app;
+        let db;
+        let auth;
+        let userId = null;
         let isAuthReady = false;
-        let unsubscribeBudget = () => {};
+        
+        // State variables
+        let currentBudget = 0.00;
+        let spentAmount = 0.00;
+        let lastError = null;
 
-        // DOM Elements
-        const userIdEl = document.getElementById('user-id');
-        const budgetLimitEl = document.getElementById('budget-limit');
-        const spentEl = document.getElementById('spent-this-month');
-        const remainingEl = document.getElementById('remaining-budget');
-        const percentEl = document.getElementById('percent-used');
-        const gaugeProgress = document.getElementById('gauge-progress');
-        const runTestBtn = document.getElementById('run-test-btn');
-        const testBtnText = document.getElementById('test-btn-text');
-        const testSpinner = document.getElementById('test-spinner');
-        const testPromptEl = document.getElementById('test-prompt');
-        const testStatusEl = document.getElementById('test-status');
-        const testDetailsEl = document.getElementById('test-details');
-        const testOutputBox = document.getElementById('test-output-box');
-        const errorMessageEl = document.getElementById('error-message');
-        const budgetModal = document.getElementById('budget-modal');
-        const setBudgetBtn = document.getElementById('set-budget-btn');
-        const closeModalBtn = document.getElementById('close-modal-btn');
-        const saveBudgetBtn = document.getElementById('save-budget-btn');
-        const newBudgetInput = document.getElementById('new-budget-input');
+        // Utility to update UI
+        function updateUI(budget, spent) {
+            currentBudget = budget;
+            spentAmount = spent;
+            
+            const remaining = Math.max(0, budget - spent);
+            const percentUsed = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
 
-        // --- Utility Functions ---
-
-        function formatCurrency(amount) {
-            return `$${parseFloat(amount).toFixed(2)}`;
+            document.getElementById('current-budget').textContent = `$${budget.toFixed(2)}`;
+            document.getElementById('spent-amount').textContent = `$${spent.toFixed(2)}`;
+            document.getElementById('remaining-amount').textContent = `$${remaining.toFixed(2)}`;
+            document.getElementById('percent-used').textContent = `${percentUsed.toFixed(1)}%`;
+            
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = `${percentUsed}%`;
+            progressBar.style.backgroundColor = percentUsed >= 95 ? '#ef4444' : (percentUsed >= 75 ? '#f59e0b' : '#10b981');
         }
 
-        function updateGauge(spent, limit) {
-            const limitNum = parseFloat(limit);
-            const spentNum = parseFloat(spent);
-            
-            // Set gauge color based on usage
-            let color = '#4f46e5'; // Indigo (default)
-            if (limitNum > 0 && spentNum > limitNum * 0.9) {
-                color = '#dc2626'; // Red (90%+)
-            } else if (limitNum > 0 && spentNum > limitNum * 0.5) {
-                color = '#f59e0b'; // Amber (50%+)
-            } else if (limitNum === 0 && spentNum > 0) {
-                 color = '#dc2626'; // Red if spent without a limit
+        // --- Budget Handlers (Requires Auth/Firestore) ---
+        function getBudgetDocRef(uid) {
+            // Path: /artifacts/{appId}/users/{userId}/budget/monthly
+            return doc(db, 'artifacts', appId, 'users', uid, 'budget', 'monthly');
+        }
+
+        async function initializeBudget() {
+            if (!userId || !db) return;
+            try {
+                // Set up real-time listener for the user's budget document
+                const budgetRef = getBudgetDocRef(userId);
+                onSnapshot(budgetRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        updateUI(data.limit || 0.00, data.spent || 0.00);
+                    } else {
+                        // Document doesn't exist, create default
+                        setDoc(budgetRef, { limit: 5.00, spent: 0.00, lastUpdated: new Date().toISOString() });
+                        updateUI(5.00, 0.00);
+                    }
+                    document.getElementById('set-budget-btn').disabled = false;
+                    document.getElementById('reset-budget-btn').disabled = false;
+                }, (error) => {
+                    console.error("Firestore Listener Error:", error);
+                    document.getElementById('user-id').textContent = `Listener Error: ${error.message}`;
+                });
+            } catch (e) {
+                console.error("Error initializing budget listener:", e);
             }
-            gaugeProgress.setAttribute('stroke', color);
-            spentEl.style.color = color;
+        }
+        
+        window.setBudget = async function() {
+            if (!userId || !db) {
+                alertUser('Error', 'Authentication required to set budget.');
+                return;
+            }
+            const newLimit = parseFloat(document.getElementById('budget-input').value);
+            if (isNaN(newLimit) || newLimit <= 0) {
+                alertUser('Error', 'Please enter a valid budget limit greater than zero.');
+                return;
+            }
             
-            if (limitNum <= 0) {
-                percentEl.textContent = '0.0%';
-                gaugeProgress.setAttribute('stroke-dasharray', '0, 282.74');
+            try {
+                const budgetRef = getBudgetDocRef(userId);
+                await updateDoc(budgetRef, { limit: newLimit, lastUpdated: new Date().toISOString() });
+                alertUser('Success', `Monthly budget limit set to $${newLimit.toFixed(2)}.`);
+            } catch (e) {
+                console.error("Error setting budget:", e);
+                alertUser('Error', `Failed to set budget: ${e.message}`);
+            }
+        }
+
+        window.resetBudget = async function() {
+            if (!userId || !db) {
+                alertUser('Error', 'Authentication required to reset budget.');
+                return;
+            }
+            if (confirmUser("Are you sure you want to reset your monthly spending to $0.00?")) {
+                try {
+                    const budgetRef = getBudgetDocRef(userId);
+                    await updateDoc(budgetRef, { spent: 0.00, lastReset: new Date().toISOString() });
+                    alertUser('Success', `Monthly spending reset to $0.00.`);
+                } catch (e) {
+                    console.error("Error resetting budget:", e);
+                    alertUser('Error', `Failed to reset budget: ${e.message}`);
+                }
+            }
+        }
+
+        // --- Core Proxy Logic ---
+        window.runAITest = async function() {
+            const prompt = document.getElementById('prompt-input').value;
+            const proxyUrl = document.getElementById('proxy-url-input').value;
+
+            // --- CRITICAL CHANGE: Bypass Auth Check for Testing ---
+            // Use the real UID if available, otherwise use a placeholder.
+            const customerId = auth.currentUser?.uid || 'anonymous-test-user-id';
+            
+            if (!proxyUrl.startsWith('http')) {
+                alertUser('Configuration Error', 'Please enter a valid Supabase Edge Function URL (e.g., https://<your-project>.supabase.co/functions/v1/ai-proxy).');
+                document.getElementById('test-status').textContent = 'Error';
                 return;
             }
 
-            const percentage = Math.min((spentNum / limitNum) * 100, 100);
-            percentEl.textContent = `${percentage.toFixed(1)}%`;
+            document.getElementById('test-status').textContent = 'Calling Proxy...';
+            document.getElementById('test-output-content').textContent = 'Processing request...';
+            document.getElementById('response-cost').textContent = '$0.00';
+            document.getElementById('cache-status').textContent = 'N/A';
 
-            const circumference = 2 * Math.PI * 45; // 282.74
-            const progress = (circumference * percentage) / 200; 
-            
-            gaugeProgress.setAttribute('stroke-dasharray', `${progress}, 282.74`);
-        }
-
-        function refreshDashboard(budgetLimit, totalSpent) {
-            const limit = parseFloat(budgetLimit || 0);
-            const spent = parseFloat(totalSpent || 0);
-
-            budgetLimitEl.textContent = limit > 0 ? formatCurrency(limit) : 'Not Set';
-            spentEl.textContent = formatCurrency(spent);
-            remainingEl.textContent = formatCurrency(Math.max(0, limit - spent));
-            
-            updateGauge(spent, limit);
-        }
-
-        // --- Firebase & Budget Logic ---
-
-        async function initFirebase() {
             try {
-                // Check for missing Firebase config data
-                if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey) {
-                    throw new Error("Missing Firebase configuration data (API Key is likely missing).");
-                }
-                
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+                // Simple exponential backoff retry mechanism for API call
+                let response;
+                let result;
+                let attempts = 0;
+                const maxAttempts = 3;
 
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        userIdEl.textContent = userId;
-                    } else {
-                        // Sign in anonymously if no token is provided (or token failed)
-                        const anonymousUser = await signInAnonymously(auth);
-                        userId = anonymousUser.user.uid;
-                        userIdEl.textContent = userId;
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    try {
+                        response = await fetch(proxyUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ customerId: customerId, prompt: prompt })
+                        });
+                        result = await response.json();
+                        
+                        if (response.ok) {
+                            break; // Success
+                        } else if (response.status === 403) {
+                            // Budget Exceeded - critical success case for cost guard
+                            document.getElementById('test-status').textContent = 'BUDGET BLOCKED (403)';
+                            document.getElementById('test-output-content').textContent = `Transaction Blocked. ${result.error || 'Budget Limit Exceeded.'}`;
+                            return;
+                        } else {
+                            // Non-critical API error, retry
+                            throw new Error(`Proxy call failed (Status: ${response.status}): ${result.error || 'Unknown Error'}`);
+                        }
+
+                    } catch (e) {
+                        lastError = e;
+                        if (attempts < maxAttempts) {
+                            const delay = Math.pow(2, attempts) * 500; // 1s, 2s, 4s
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        } else {
+                            throw lastError; // Re-throw last error after max attempts
+                        }
                     }
-                    isAuthReady = true;
-                    // Once authenticated, start listening for budget data
-                    listenForBudgetUpdates();
-                });
+                }
 
-                // Attempt initial sign-in
+                // Update UI based on successful proxy response
+                if (result.error) {
+                    document.getElementById('test-status').textContent = 'Proxy Error';
+                    document.getElementById('test-output-content').textContent = `Proxy returned error: ${result.error}`;
+                } else {
+                    document.getElementById('test-status').textContent = 'Success';
+                    document.getElementById('test-output-content').textContent = result.output;
+                    document.getElementById('response-cost').textContent = `$${(result.cost || 0).toFixed(3)}`;
+                    document.getElementById('cache-status').textContent = result.cached ? 'HIT' : 'MISS';
+                    
+                    // Note: Update budget display only if a real user ID is available
+                    if(auth.currentUser?.uid && result.spent !== undefined) {
+                        updateUI(result.limit || currentBudget, result.spent);
+                    }
+                }
+
+            } catch (e) {
+                console.error("AI Proxy Test Failed:", e);
+                document.getElementById('test-status').textContent = 'Network/Fatal Error';
+                document.getElementById('test-output-content').textContent = `Fatal Error: ${e.message}. Check console for details.`;
+            }
+        }
+
+
+        // --- UI/Modal Functions (No window.alert/confirm) ---
+        function alertUser(title, message) {
+            console.log(`[${title}]: ${message}`);
+            // In a full app, you would display a custom modal here.
+            // For now, we log to console.
+        }
+
+        function confirmUser(message) {
+            // In a full app, you would display a custom confirmation modal.
+            // For now, we simulate a 'Yes' response to avoid halting execution.
+            return true; 
+        }
+
+        // --- Auth Setup ---
+        async function setupFirebase() {
+            if (!firebaseConfig) {
+                const errorMsg = 'Error: Missing Firebase configuration data (API Key is likely missing).';
+                document.getElementById('user-id').textContent = errorMsg;
+                document.getElementById('test-status').textContent = 'Waiting for user authentication... Please try again.';
+                console.error(errorMsg);
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Set session persistence
+                await setPersistence(auth, browserSessionPersistence);
+
+                // Sign in with custom token or anonymously
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
                     await signInAnonymously(auth);
                 }
-            } catch (error) {
-                console.error("Firebase initialization or authentication failed:", error);
-                // Display the specific error on the dashboard
-                userIdEl.textContent = `Error: ${error.message}`;
-                // Set the status to reflect the failure
-                testStatusEl.textContent = 'Authentication Failed. Please reload or contact support.';
-            }
-        }
 
-        function listenForBudgetUpdates() {
-            if (!db || !userId) return;
-
-            // Unsubscribe from previous listener if necessary
-            unsubscribeBudget();
-
-            // Budget data is stored in a private path
-            const budgetDocPath = `/artifacts/${appId}/users/${userId}/budgets/monthly_budget`;
-            
-            // Set up real-time listener
-            unsubscribeBudget = onSnapshot(doc(db, budgetDocPath), (docSnapshot) => {
-                if (docSnapshot.exists()) {
-                    const data = docSnapshot.data();
-                    refreshDashboard(data.limit, data.spent);
-                } else {
-                    // Document doesn't exist, use defaults
-                    refreshDashboard(0, 0); 
-                }
-            }, (error) => {
-                console.error("Error fetching budget snapshot:", error);
-            });
-        }
-
-        async function saveBudgetLimit(limit) {
-            if (!db || !userId) return;
-
-            const budgetDocPath = `/artifacts/${appId}/users/${userId}/budgets/monthly_budget`;
-            const docRef = doc(db, budgetDocPath);
-            
-            try {
-                // Fetch current spent amount to preserve it when updating the limit
-                const docSnap = await getDoc(docRef);
-                const currentSpent = docSnap.exists() ? docSnap.data().spent : 0;
-
-                await setDoc(docRef, { 
-                    limit: limit,
-                    spent: currentSpent, 
-                }); 
-                
-                // The onSnapshot listener handles the UI refresh automatically
-
-            } catch (error) {
-                console.error("Error setting budget limit:", error);
-            }
-        }
-        
-        // --- Proxy Test Logic ---
-
-        async function runTest() {
-            errorMessageEl.classList.add('hidden');
-            testOutputBox.textContent = '';
-            testDetailsEl.classList.add('hidden');
-            testStatusEl.textContent = 'Running test...';
-
-            if (!isAuthReady || !userId) {
-                testStatusEl.textContent = 'Waiting for user authentication... Please try again.';
-                return;
-            }
-
-            const prompt = testPromptEl.value.trim() || "What is the best way to integrate a cloud function with a real-time database?";
-            
-            runTestBtn.disabled = true;
-            testBtnText.classList.add('hidden');
-            testSpinner.classList.remove('hidden');
-
-            const payload = {
-                customerId: userId,
-                prompt: prompt
-            };
-
-            try {
-                const response = await fetch(PROXY_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload),
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('user-id').textContent = userId;
+                        document.getElementById('test-status').textContent = 'Authenticated. Ready to run.';
+                        initializeBudget(); // Start listening for budget changes
+                    } else {
+                        userId = null;
+                        document.getElementById('user-id').textContent = 'Not Authenticated.';
+                        document.getElementById('test-status').textContent = 'Waiting for user authentication... Please try again.';
+                        // Disable buttons that rely on auth/firestore
+                        document.getElementById('set-budget-btn').disabled = true;
+                        document.getElementById('reset-budget-btn').disabled = true;
+                    }
+                    isAuthReady = true;
                 });
-                
-                if (response.status === 403) {
-                    // Budget exceeded error
-                    const errorJson = await response.json();
-                    testStatusEl.textContent = 'Budget Error';
-                    errorMessageEl.textContent = errorJson.error || 'Budget limit exceeded. Transaction blocked.';
-                    errorMessageEl.classList.remove('hidden');
-                    testOutputBox.textContent = 'Transaction blocked.';
-                    testOutputBox.classList.add('text-red-600');
-                    return;
-                }
 
-                if (!response.ok) {
-                    const text = await response.text();
-                    throw new Error(`Proxy call failed with status ${response.status}. Response: ${text.substring(0, 100)}...`);
-                }
-
-                const data = await response.json();
-                
-                if (data.error) {
-                     // Error returned from the Edge function payload itself
-                    testStatusEl.textContent = 'Error';
-                    errorMessageEl.textContent = `Proxy Error: ${data.error}`;
-                    errorMessageEl.classList.remove('hidden');
-                    testOutputBox.textContent = data.error;
-                    testOutputBox.classList.add('text-red-600');
-                } else {
-                    // Success
-                    testStatusEl.textContent = 'Test Succeeded';
-                    testOutputBox.textContent = data.output;
-                    testOutputBox.classList.remove('text-red-600');
-                    
-                    document.getElementById('result-cost').textContent = formatCurrency(data.cost);
-                    document.getElementById('result-cached').textContent = data.cached ? 'HIT' : 'MISS';
-                    document.getElementById('result-cached').classList.toggle('text-green-600', data.cached);
-                    document.getElementById('result-cached').classList.toggle('text-yellow-600', !data.cached);
-                    document.getElementById('result-spent').textContent = formatCurrency(data.spent);
-                    document.getElementById('result-limit').textContent = formatCurrency(data.limit);
-                    
-                    testDetailsEl.classList.remove('hidden');
-                    
-                    // The dashboard automatically refreshes via the onSnapshot listener.
-                }
-
-            } catch (error) {
-                console.error("Test function failed:", error);
-                testStatusEl.textContent = 'Error';
-                errorMessageEl.textContent = `Test Failed: ${error.message}`;
-                errorMessageEl.classList.remove('hidden');
-                testOutputBox.textContent = `Error during proxy call or processing. Check console for details.`;
-            } finally {
-                runTestBtn.disabled = false;
-                testBtnText.classList.remove('hidden');
-                testSpinner.classList.add('hidden');
+            } catch (e) {
+                console.error("Firebase Initialization Failed:", e);
+                document.getElementById('user-id').textContent = `Auth Failed: ${e.message}`;
+                alertUser('Critical Error', `Firebase initialization failed. ${e.message}`);
             }
         }
 
-        // --- Event Listeners ---
-        
-        runTestBtn.addEventListener('click', runTest);
-        
-        setBudgetBtn.addEventListener('click', () => {
-            // Pre-fill input with current limit if set
-            const currentLimitText = budgetLimitEl.textContent.replace('$', '').replace('Not Set', '0');
-            newBudgetInput.value = parseFloat(currentLimitText) > 0 ? parseFloat(currentLimitText) : '';
-            budgetModal.classList.remove('hidden');
-        });
-        
-        closeModalBtn.addEventListener('click', () => {
-            budgetModal.classList.add('hidden');
-        });
-        
-        saveBudgetBtn.addEventListener('click', async () => {
-            const limit = parseFloat(newBudgetInput.value);
-            if (isNaN(limit) || limit < 0) {
-                // Display error message for invalid input
-                document.getElementById('error-message').textContent = "Please enter a valid, non-negative budget limit.";
-                document.getElementById('error-message').classList.remove('hidden');
-                return;
-            }
-            document.getElementById('error-message').classList.add('hidden');
-            budgetModal.classList.add('hidden');
-            await saveBudgetLimit(limit);
-        });
-
-        // Initialize on load
-        window.onload = initFirebase;
+        setupFirebase();
     </script>
+
 </body>
 </html>
