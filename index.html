@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Cost Guard Dashboard</title>
     <!-- Load Tailwind CSS -->
-    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
         /* Custom styles for aesthetics and responsive canvas */
         body {
@@ -156,9 +156,9 @@
 
 
     <script type="module">
-        import { initializeApp } from "[https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js](https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js)";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "[https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js](https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js)";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "[https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js](https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js)";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- GLOBAL VARIABLES (Provided by Canvas) ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ai-cost-guard';
@@ -180,6 +180,15 @@
         let isAuthReady = false; // Used to guard Firestore/Mock operations
 
         // --- Utility Functions ---
+
+        // Helper to enable buttons
+        const setBudgetButtonsEnabled = () => {
+            document.getElementById('set-budget-btn').disabled = false;
+            document.getElementById('reset-budget-btn').disabled = false;
+            document.getElementById('run-ai-test-btn').disabled = false;
+            document.getElementById('test-status').textContent = 'Ready to run.';
+            console.log("DEBUG: Buttons enabled.");
+        };
 
         // Utility to update UI
         function updateUI(budget, spent) {
@@ -247,18 +256,14 @@
             if (!userId || !isAuthReady) return;
             isMockMode = isMock;
             
-            const setBudgetButtonsEnabled = () => {
-                document.getElementById('set-budget-btn').disabled = false;
-                document.getElementById('reset-budget-btn').disabled = false;
-                document.getElementById('run-ai-test-btn').disabled = false;
-                document.getElementById('test-status').textContent = 'Ready to run.';
-            };
+            setBudgetButtonsEnabled(); // Ensure buttons are enabled here
             
             if (isMock) {
                 // MOCK MODE: Use localStorage
                 const data = loadMockBudget();
                 updateUI(data.limit, data.spent);
-                setBudgetButtonsEnabled();
+                console.log("DEBUG: Initialized in Mock Mode.");
+
             } else {
                 // FIREBASE MODE: Use onSnapshot
                 try {
@@ -273,7 +278,6 @@
                                 .catch(e => console.error("Error creating default budget doc:", e));
                             updateUI(5.00, 0.00);
                         }
-                        setBudgetButtonsEnabled();
                     }, (error) => {
                         console.error("Firestore Listener Error:", error);
                         document.getElementById('user-id').textContent = `Listener Error: ${error.message}`;
@@ -285,6 +289,7 @@
         }
         
         window.setBudget = async function() {
+            console.log("DEBUG: setBudget function called."); // Debugging line to check click registration
             if (!isAuthReady) {
                 alertUser('Error', 'System not ready.');
                 return;
@@ -442,6 +447,7 @@
                 userId = 'mock-user-123';
                 document.getElementById('user-id').innerHTML = '<span class="mock-id-text">Mock User ID:</span> mock-user-123';
                 isAuthReady = true;
+                console.log("DEBUG: Entering MOCK MODE.");
                 initializeBudget(true); // Initialize in mock mode
                 alertUser('Critical Error', 'Running in Mock Mode. Firebase config missing.');
                 return;
@@ -478,10 +484,10 @@
                 document.getElementById('user-id').textContent = `Auth Failed: ${e.message}`;
                 alertUser('Critical Error', `Firebase initialization failed. ${e.message}`);
                 
-                // Allow proxy testing even if auth fails, using a default anonymous ID
+                // --- FALLBACK (Allow proxy testing even if auth fails) ---
                 isAuthReady = true; 
                 userId = 'anonymous-auth-failed';
-                document.getElementById('run-ai-test-btn').disabled = false;
+                setBudgetButtonsEnabled();
                 document.getElementById('test-status').textContent = 'Auth Failed, Test Button Enabled.';
             }
         }
