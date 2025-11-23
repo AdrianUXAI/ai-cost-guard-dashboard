@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Cost Guard Dashboard</title>
     <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
     <style>
         /* Custom styles for aesthetics and responsive canvas */
         body {
@@ -47,6 +47,10 @@
             height: 100%;
             background-color: #10b981;
             transition: width 0.5s ease-in-out;
+        }
+        .mock-id-text {
+            color: #ef4444; /* Red for Mock Mode */
+            font-weight: bold;
         }
     </style>
 </head>
@@ -133,11 +137,10 @@
                 </div>
                 
                 <div class="flex justify-between items-center">
-                    <!-- IMPORTANT: The button is now ALWAYS enabled to bypass the broken auth -->
-                    <button id="run-ai-test-btn" onclick="runAITest()" class="btn-primary flex-grow">
+                    <button id="run-ai-test-btn" onclick="runAITest()" disabled class="btn-primary flex-grow disabled:opacity-50">
                         Run AI Content Generation Test
                     </button>
-                    <span id="test-status" class="ml-4 text-sm font-semibold text-gray-600">Ready</span>
+                    <span id="test-status" class="ml-4 text-sm font-semibold text-gray-600">Waiting for user ID...</span>
                 </div>
 
                 <!-- Test Output Display -->
@@ -153,32 +156,30 @@
 
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // setLogLevel('debug'); // Enable for debugging Firestore issues
-
+        import { initializeApp } from "[https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js](https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js)";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "[https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js](https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js)";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "[https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js](https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js)";
+        
         // --- GLOBAL VARIABLES (Provided by Canvas) ---
-        // We use these checks to handle the current environment injection failure.
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ai-cost-guard';
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
             : null;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // --- Firebase Initialization ---
+        // --- Firebase/Auth State ---
         let app;
         let db;
         let auth;
         let userId = null;
-        let isAuthReady = false;
+        let isMockMode = false;
         
         // State variables
         let currentBudget = 0.00;
         let spentAmount = 0.00;
-        let lastError = null;
+        let isAuthReady = false; // Used to guard Firestore/Mock operations
+
+        // --- Utility Functions ---
 
         // Utility to update UI
         function updateUI(budget, spent) {
@@ -198,40 +199,94 @@
             progressBar.style.backgroundColor = percentUsed >= 95 ? '#ef4444' : (percentUsed >= 75 ? '#f59e0b' : '#10b981');
         }
 
-        // --- Budget Handlers (Requires Auth/Firestore) ---
+        function alertUser(title, message) {
+            console.log(`[${title}]: ${message}`);
+            // Display message in test status field for critical errors
+            if (title === 'Critical Error' || title === 'Error') {
+                document.getElementById('test-status').textContent = `${title}: ${message.substring(0, 50)}...`;
+            }
+        }
+
+        function confirmUser(message) {
+            // Mock confirm for now as window.confirm() is blocked
+            return true; 
+        }
+
+        // --- Budget Handlers (Firestore and Mock) ---
+
         function getBudgetDocRef(uid) {
             // Path: /artifacts/{appId}/users/{userId}/budget/monthly
             return doc(db, 'artifacts', appId, 'users', uid, 'budget', 'monthly');
         }
 
-        async function initializeBudget() {
-            if (!userId || !db) return;
-            try {
-                // Set up real-time listener for the user's budget document
-                const budgetRef = getBudgetDocRef(userId);
-                onSnapshot(budgetRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        updateUI(data.limit || 0.00, data.spent || 0.00);
-                    } else {
-                        // Document doesn't exist, create default
-                        setDoc(budgetRef, { limit: 5.00, spent: 0.00, lastUpdated: new Date().toISOString() });
-                        updateUI(5.00, 0.00);
-                    }
-                    document.getElementById('set-budget-btn').disabled = false;
-                    document.getElementById('reset-budget-btn').disabled = false;
-                }, (error) => {
-                    console.error("Firestore Listener Error:", error);
-                    document.getElementById('user-id').textContent = `Listener Error: ${error.message}`;
-                });
-            } catch (e) {
-                console.error("Error initializing budget listener:", e);
+        // --- LocalStorage Mock Handlers ---
+        const MOCK_STORAGE_KEY = 'ai-cost-guard-mock-budget';
+        
+        function loadMockBudget() {
+            const stored = localStorage.getItem(MOCK_STORAGE_KEY);
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch (e) {
+                    console.error("Failed to parse mock budget from localStorage:", e);
+                    localStorage.removeItem(MOCK_STORAGE_KEY); // Clear bad data
+                }
+            }
+            // Default mock budget
+            return { limit: 5.00, spent: 0.00 }; 
+        }
+
+        function saveMockBudget(data) {
+            localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(data));
+            updateUI(data.limit, data.spent);
+        }
+
+        // --- Main Budget Initialization ---
+
+        async function initializeBudget(isMock = false) {
+            if (!userId || !isAuthReady) return;
+            isMockMode = isMock;
+            
+            const setBudgetButtonsEnabled = () => {
+                document.getElementById('set-budget-btn').disabled = false;
+                document.getElementById('reset-budget-btn').disabled = false;
+                document.getElementById('run-ai-test-btn').disabled = false;
+                document.getElementById('test-status').textContent = 'Ready to run.';
+            };
+            
+            if (isMock) {
+                // MOCK MODE: Use localStorage
+                const data = loadMockBudget();
+                updateUI(data.limit, data.spent);
+                setBudgetButtonsEnabled();
+            } else {
+                // FIREBASE MODE: Use onSnapshot
+                try {
+                    const budgetRef = getBudgetDocRef(userId);
+                    onSnapshot(budgetRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            updateUI(data.limit || 0.00, data.spent || 0.00);
+                        } else {
+                            // Document doesn't exist, create default
+                            setDoc(budgetRef, { limit: 5.00, spent: 0.00, lastUpdated: new Date().toISOString() })
+                                .catch(e => console.error("Error creating default budget doc:", e));
+                            updateUI(5.00, 0.00);
+                        }
+                        setBudgetButtonsEnabled();
+                    }, (error) => {
+                        console.error("Firestore Listener Error:", error);
+                        document.getElementById('user-id').textContent = `Listener Error: ${error.message}`;
+                    });
+                } catch (e) {
+                    console.error("Error initializing Firestore budget listener:", e);
+                }
             }
         }
         
         window.setBudget = async function() {
-            if (!userId || !db) {
-                alertUser('Error', 'Authentication required to set budget.');
+            if (!isAuthReady) {
+                alertUser('Error', 'System not ready.');
                 return;
             }
             const newLimit = parseFloat(document.getElementById('budget-input').value);
@@ -241,9 +296,16 @@
             }
             
             try {
-                const budgetRef = getBudgetDocRef(userId);
-                await updateDoc(budgetRef, { limit: newLimit, lastUpdated: new Date().toISOString() });
-                alertUser('Success', `Monthly budget limit set to $${newLimit.toFixed(2)}.`);
+                if (isMockMode) {
+                    const data = loadMockBudget();
+                    saveMockBudget({ limit: newLimit, spent: data.spent });
+                    alertUser('Success', `(Mock Mode) Budget limit set to $${newLimit.toFixed(2)}.`);
+                } else {
+                    // Firestore Update
+                    const budgetRef = getBudgetDocRef(userId);
+                    await updateDoc(budgetRef, { limit: newLimit, lastUpdated: new Date().toISOString() });
+                    alertUser('Success', `Monthly budget limit set to $${newLimit.toFixed(2)}.`);
+                }
             } catch (e) {
                 console.error("Error setting budget:", e);
                 alertUser('Error', `Failed to set budget: ${e.message}`);
@@ -251,15 +313,22 @@
         }
 
         window.resetBudget = async function() {
-            if (!userId || !db) {
-                alertUser('Error', 'Authentication required to reset budget.');
+            if (!isAuthReady) {
+                alertUser('Error', 'System not ready.');
                 return;
             }
             if (confirmUser("Are you sure you want to reset your monthly spending to $0.00?")) {
                 try {
-                    const budgetRef = getBudgetDocRef(userId);
-                    await updateDoc(budgetRef, { spent: 0.00, lastReset: new Date().toISOString() });
-                    alertUser('Success', `Monthly spending reset to $0.00.`);
+                    if (isMockMode) {
+                        const data = loadMockBudget();
+                        saveMockBudget({ limit: data.limit, spent: 0.00 });
+                        alertUser('Success', `(Mock Mode) Monthly spending reset to $0.00.`);
+                    } else {
+                        // Firestore Update
+                        const budgetRef = getBudgetDocRef(userId);
+                        await updateDoc(budgetRef, { spent: 0.00, lastReset: new Date().toISOString() });
+                        alertUser('Success', `Monthly spending reset to $0.00.`);
+                    }
                 } catch (e) {
                     console.error("Error resetting budget:", e);
                     alertUser('Error', `Failed to reset budget: ${e.message}`);
@@ -272,13 +341,12 @@
             const prompt = document.getElementById('prompt-input').value;
             const proxyUrl = document.getElementById('proxy-url-input').value;
 
-            // --- CRITICAL CHANGE: Bypass Auth Check for Testing ---
-            // Use the real UID if available, otherwise use a placeholder.
-            const customerId = auth.currentUser?.uid || 'anonymous-test-user-id';
+            // Use the real UID if available, otherwise use the mock/placeholder ID.
+            const customerId = userId || 'anonymous-test-user-id';
             
             if (!proxyUrl.startsWith('http')) {
                 alertUser('Configuration Error', 'Please enter a valid Supabase Edge Function URL (e.g., https://<your-project>.supabase.co/functions/v1/ai-proxy).');
-                document.getElementById('test-status').textContent = 'Error';
+                document.getElementById('test-status').textContent = 'Error: Invalid URL';
                 return;
             }
 
@@ -286,6 +354,7 @@
             document.getElementById('test-output-content').textContent = 'Processing request...';
             document.getElementById('response-cost').textContent = '$0.00';
             document.getElementById('cache-status').textContent = 'N/A';
+            document.getElementById('run-ai-test-btn').disabled = true; // Disable during execution
 
             try {
                 // Simple exponential backoff retry mechanism for API call
@@ -302,7 +371,14 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ customerId: customerId, prompt: prompt })
                         });
-                        result = await response.json();
+                        
+                        // Try to parse JSON for both success and error responses
+                        try {
+                            result = await response.json();
+                        } catch (e) {
+                            // If it's not JSON (e.g., CORS error response), treat as a network issue
+                            throw new Error(`Non-JSON response received from proxy (Status: ${response.status})`);
+                        }
                         
                         if (response.ok) {
                             break; // Success
@@ -317,12 +393,12 @@
                         }
 
                     } catch (e) {
-                        lastError = e;
+                        // Log retry attempt, but don't stop the loop if max attempts not reached
                         if (attempts < maxAttempts) {
-                            const delay = Math.pow(2, attempts) * 500; // 1s, 2s, 4s
+                            const delay = Math.pow(2, attempts) * 500;
                             await new Promise(resolve => setTimeout(resolve, delay));
                         } else {
-                            throw lastError; // Re-throw last error after max attempts
+                            throw e; // Re-throw last error after max attempts
                         }
                     }
                 }
@@ -337,52 +413,48 @@
                     document.getElementById('response-cost').textContent = `$${(result.cost || 0).toFixed(3)}`;
                     document.getElementById('cache-status').textContent = result.cached ? 'HIT' : 'MISS';
                     
-                    // Note: Update budget display only if a real user ID is available
-                    if(auth.currentUser?.uid && result.spent !== undefined) {
+                    // Update budget display from proxy response data
+                    if(result.spent !== undefined) {
                         updateUI(result.limit || currentBudget, result.spent);
+                        
+                        // If in mock mode, update localStorage to reflect the new spent amount
+                        if (isMockMode) {
+                            saveMockBudget({ limit: result.limit || currentBudget, spent: result.spent });
+                        }
                     }
                 }
 
             } catch (e) {
                 console.error("AI Proxy Test Failed:", e);
                 document.getElementById('test-status').textContent = 'Network/Fatal Error';
-                document.getElementById('test-output-content').textContent = `Fatal Error: ${e.message}. Check console for details.`;
+                document.getElementById('test-output-content').textContent = `Fatal Error: Failed to fetch. Check console for details. (Likely CORS or URL issue)`;
+            } finally {
+                document.getElementById('run-ai-test-btn').disabled = false; // Re-enable
             }
         }
 
 
-        // --- UI/Modal Functions (No window.alert/confirm) ---
-        function alertUser(title, message) {
-            console.log(`[${title}]: ${message}`);
-            // In a full app, you would display a custom modal here.
-            // For now, we log to console.
-        }
-
-        function confirmUser(message) {
-            // In a full app, you would display a custom confirmation modal.
-            // For now, we simulate a 'Yes' response to avoid halting execution.
-            return true; 
-        }
-
-        // --- Auth Setup ---
+        // --- Auth/Initialization Setup ---
         async function setupFirebase() {
             if (!firebaseConfig) {
-                const errorMsg = 'Error: Missing Firebase configuration data (API Key is likely missing).';
-                document.getElementById('user-id').textContent = errorMsg;
-                document.getElementById('test-status').textContent = 'Waiting for user authentication... Please try again.';
-                console.error(errorMsg);
+                // --- MOCK MODE FALLBACK ---
+                isMockMode = true;
+                userId = 'mock-user-123';
+                document.getElementById('user-id').innerHTML = '<span class="mock-id-text">Mock User ID:</span> mock-user-123';
+                isAuthReady = true;
+                initializeBudget(true); // Initialize in mock mode
+                alertUser('Critical Error', 'Running in Mock Mode. Firebase config missing.');
                 return;
             }
 
+            // --- FIREBASE MODE ---
             try {
                 app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Set session persistence
                 await setPersistence(auth, browserSessionPersistence);
 
-                // Sign in with custom token or anonymously
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
@@ -393,15 +465,10 @@
                     if (user) {
                         userId = user.uid;
                         document.getElementById('user-id').textContent = userId;
-                        document.getElementById('test-status').textContent = 'Authenticated. Ready to run.';
-                        initializeBudget(); // Start listening for budget changes
+                        initializeBudget(false); // Start listening for budget changes
                     } else {
                         userId = null;
-                        document.getElementById('user-id').textContent = 'Not Authenticated.';
-                        document.getElementById('test-status').textContent = 'Waiting for user authentication... Please try again.';
-                        // Disable buttons that rely on auth/firestore
-                        document.getElementById('set-budget-btn').disabled = true;
-                        document.getElementById('reset-budget-btn').disabled = true;
+                        document.getElementById('user-id').textContent = 'Not Authenticated. Waiting for platform token.';
                     }
                     isAuthReady = true;
                 });
@@ -410,6 +477,12 @@
                 console.error("Firebase Initialization Failed:", e);
                 document.getElementById('user-id').textContent = `Auth Failed: ${e.message}`;
                 alertUser('Critical Error', `Firebase initialization failed. ${e.message}`);
+                
+                // Allow proxy testing even if auth fails, using a default anonymous ID
+                isAuthReady = true; 
+                userId = 'anonymous-auth-failed';
+                document.getElementById('run-ai-test-btn').disabled = false;
+                document.getElementById('test-status').textContent = 'Auth Failed, Test Button Enabled.';
             }
         }
 
