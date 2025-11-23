@@ -137,8 +137,7 @@
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Supabase Edge Function URL - !!! MUST BE UPDATED TO NEW NAME !!!
-        // Replaced 'budget-guard' with the new function name 'ai-proxy'
+        // Supabase Edge Function URL - MUST be the new 'ai-proxy' function name
         const SUPABASE_PROJECT_REF = 'tsogjfhrvzuweshlfrfu';
         const PROXY_URL = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/ai-proxy`; 
 
@@ -232,6 +231,11 @@
 
         async function initFirebase() {
             try {
+                // Ensure firebaseConfig is not empty before proceeding
+                if (Object.keys(firebaseConfig).length === 0 || !firebaseConfig.apiKey) {
+                    throw new Error("Missing Firebase configuration data (API Key is likely missing).");
+                }
+                
                 const app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
@@ -295,8 +299,7 @@
             try {
                 await setDoc(docRef, { 
                     limit: limit,
-                    spent: 0, // Reset spent amount when setting a new limit, or fetch existing spent
-                    // In a real app, you would fetch existing spent amount here
+                    spent: 0, // In a real app, you would fetch existing spent amount here
                 }, { merge: true }); 
                 
                 // Fetch the current spent amount immediately after setting the limit to update the UI correctly
@@ -406,7 +409,7 @@
                 testStatusEl.textContent = 'Error';
                 errorMessageEl.textContent = `Error: ${error.message}`;
                 errorMessageEl.classList.remove('hidden');
-                testOutputBox.textContent = `Error: Unexpected token '<', "<html> <he"... is not valid JSON`;
+                testOutputBox.textContent = `Error during proxy call or processing. Check console for details.`;
             } finally {
                 runTestBtn.disabled = false;
                 testBtnText.classList.remove('hidden');
@@ -432,9 +435,12 @@
         saveBudgetBtn.addEventListener('click', async () => {
             const limit = parseFloat(newBudgetInput.value);
             if (isNaN(limit) || limit < 0) {
-                alert("Please enter a valid budget limit."); // Use custom modal in production
+                // Use custom message box instead of alert()
+                document.getElementById('error-message').textContent = "Please enter a valid, non-negative budget limit.";
+                document.getElementById('error-message').classList.remove('hidden');
                 return;
             }
+            document.getElementById('error-message').classList.add('hidden');
             budgetModal.classList.add('hidden');
             await saveBudgetLimit(limit);
         });
