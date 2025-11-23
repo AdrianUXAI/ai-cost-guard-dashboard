@@ -145,10 +145,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // setLogLevel('Debug'); // Uncomment for debugging Firestore
-
         let db, auth;
         let userId = 'loading';
         let isAuthReady = false;
@@ -296,9 +293,7 @@
             const docRef = doc(db, budgetDocPath);
             
             try {
-                // Ensure 'spent' field exists, initialized to 0 if doc is new.
-                // We don't fetch existing spent amount here to avoid race conditions; 
-                // the goal is only to set the limit.
+                // Fetch current spent amount to preserve it when updating the limit
                 const docSnap = await getDoc(docRef);
                 const currentSpent = docSnap.exists() ? docSnap.data().spent : 0;
 
@@ -421,7 +416,7 @@
         saveBudgetBtn.addEventListener('click', async () => {
             const limit = parseFloat(newBudgetInput.value);
             if (isNaN(limit) || limit < 0) {
-                // Use custom message box instead of alert()
+                // Display error message for invalid input
                 document.getElementById('error-message').textContent = "Please enter a valid, non-negative budget limit.";
                 document.getElementById('error-message').classList.remove('hidden');
                 return;
