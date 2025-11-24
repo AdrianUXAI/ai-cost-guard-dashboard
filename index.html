@@ -3,513 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Cost Guard</title>
+    <title>AI Cost Guard Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom scrollbar for better dark mode aesthetics */
-        body::-webkit-scrollbar { width: 8px; }
-        body::-webkit-scrollbar-track { background: #1f2937; /* gray-800 */ }
-        body::-webkit-scrollbar-thumb { background: #059669; /* emerald-600 */ border-radius: 4px; }
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        .card { background-color: white; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
+        .btn-primary { background-color: #4f46e5; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; }
+        .btn-primary:hover { background-color: #4338ca; }
+        .btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; }
     </style>
 </head>
-<body class="min-h-screen bg-gray-900 p-4 sm:p-8 text-white">
+<body class="p-4 md:p-8 min-h-screen">
 
-    <!-- Supabase Library Import -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-    <header class="max-w-4xl mx-auto mb-8">
-        <h1 class="text-4xl font-extrabold text-emerald-400 mb-2">
-            AI Cost Guard
-        </h1>
-        <p class="text-gray-400">
-            User ID: <span id="user-id" class="font-mono text-xs p-1 bg-gray-800 rounded">...Loading...</span>
-        </p>
-        <p id="config-warning" class="text-sm text-red-400 mt-2 font-bold">
-            🚨 ACTION REQUIRED: Please fill in the SUPABASE_URL and SUPABASE_ANON_KEY in the code below!
-        </p>
+    <header class="mb-8 text-center">
+        <h1 class="text-4xl font-extrabold text-gray-900 mb-2">AI Cost Guard</h1>
+        <p class="text-lg text-indigo-600">Secure AI Gateway with Budget Control</p>
     </header>
 
-    <main class="max-w-4xl mx-auto bg-gray-800 p-6 sm:p-8 rounded-2xl shadow-xl border border-gray-700">
+    <main class="max-w-4xl mx-auto space-y-6">
 
-        <!-- Budget Management Section -->
-        <div class="bg-gray-900 border-l-4 border-emerald-500 p-4 mb-8 rounded-lg">
-            <div class="flex justify-between items-start">
+        <!-- Configuration Card -->
+        <div class="card bg-blue-50 border border-blue-200">
+            <h2 class="text-xl font-bold text-blue-800 mb-4">1. Configuration</h2>
+            <div class="space-y-4">
                 <div>
-                    <p class="text-sm font-medium text-emerald-300">Monthly Budget Limit (Supabase):</p>
-                    <h2 id="current-budget-display" class="text-3xl font-bold text-emerald-400">
-                        Not Set
-                    </h2>
+                    <label class="block text-sm font-semibold text-gray-700">Supabase Edge Function URL</label>
+                    <input id="proxy-url-input" type="text" 
+                           placeholder="https://[project-ref].supabase.co/functions/v1/ai-proxy" 
+                           class="w-full p-2 border border-gray-300 rounded-lg"
+                           value="https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy">
                 </div>
-                <button
-                    id="open-modal-btn"
-                    class="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-full hover:bg-emerald-700 transition duration-150 shadow-md disabled:bg-gray-600"
-                    disabled
-                >
-                    Set Budget
-                </button>
-            </div>
-
-            <div class="mt-4">
-                <p class="text-xs text-gray-300 font-medium">
-                    Spent This Month (from usage_records): <span id="total-spent-display" class="font-bold">$0.00</span>
-                </p>
-                
-                <div class="w-full bg-gray-600 rounded-full h-2.5 mt-2">
-                    <div id="progress-bar" class="h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700">Supabase Anon Key (Required for Auth)</label>
+                    <input id="anon-key-input" type="password" 
+                           placeholder="Paste your 'anon' public key here (starts with eyJ...)" 
+                           class="w-full p-2 border border-gray-300 rounded-lg">
                 </div>
-                <p id="usage-percent-text" class="text-xs text-right mt-1 text-gray-300">0.0% Used</p>
-                <p id="budget-exceeded-warning" class="text-red-400 text-sm font-semibold mt-2 hidden">Budget is exceeded! API calls will be blocked by the proxy.</p>
             </div>
         </div>
 
-        <!-- API Test Section -->
-        <section class="mt-10">
-            <h3 class="text-xl font-semibold text-white mb-4">Test AI Proxy (Cache & Cost Check)</h3>
-            <p class="text-gray-400 mb-4">
-                Click the button to simulate a call to your **`ai-proxy`** Edge Function. Try running it multiple times to see cache hits.
-            </p>
+        <!-- Test Section -->
+        <div class="card">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">2. Run AI Test</h2>
             
-            <button
-                id="run-proxy-test-btn"
-                class="w-full sm:w-auto px-6 py-3 text-lg font-semibold text-gray-900 bg-sky-400 rounded-xl hover:bg-sky-500 transition duration-200 shadow-lg disabled:bg-gray-600"
-                disabled
-            >
-                Run AI Content Generation Test
-            </button>
-            
-            <div id="proxy-message" class="mt-4 p-3 rounded-lg text-sm font-mono bg-gray-700 text-emerald-300">
-                Awaiting test run...
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700">Prompt</label>
+                <textarea id="prompt-input" rows="2" class="w-full p-2 border border-gray-300 rounded-lg">Explain AI caching.</textarea>
             </div>
-        </section>
-        
+
+            <div class="flex items-center space-x-4">
+                <button id="run-test-btn" onclick="runTest()" class="btn-primary">
+                    Run Test
+                </button>
+                <span id="status-indicator" class="text-sm font-semibold text-gray-500">Ready</span>
+            </div>
+
+            <!-- Output -->
+            <div class="mt-6 bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm overflow-x-auto">
+                <p class="text-gray-400 mb-2">--- Console Output ---</p>
+                <pre id="console-output">Waiting for input...</pre>
+            </div>
+        </div>
+
     </main>
 
-    <!-- Budget Modal -->
-    <div id="budget-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 transition-opacity duration-300">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all duration-300 scale-100">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">Set Monthly Budget</h2>
-            
-            <p class="text-gray-600 mb-6">
-                Define the maximum monthly spending limit for your AI services. This limit is enforced by the **budget-guard** proxy.
-            </p>
-
-            <div id="modal-current-budget" class="bg-emerald-50 border-l-4 border-emerald-500 p-3 mb-4 rounded-md hidden">
-                <p class="text-sm font-medium text-emerald-800">
-                    Current Budget Limit: <span id="modal-current-budget-value" class="font-semibold text-lg"></span>
-                </p>
-            </div>
-
-            <div class="mb-6">
-                <label for="budget-input" class="block text-sm font-medium text-gray-700 mb-1">
-                    New Monthly Limit ($USD)
-                </label>
-                <input
-                    id="budget-input"
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-emerald-500 focus:border-emerald-500 text-lg text-gray-900"
-                    placeholder="e.g., 50.00"
-                    value="50.00"
-                />
-            </div>
-
-            <div id="modal-message" class="h-6 text-sm text-center"></div>
-
-            <div class="flex justify-end space-x-3 mt-4">
-                <button
-                    id="cancel-modal-btn"
-                    type="button"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150"
-                >
-                    Cancel
-                </button>
-                <button
-                    id="save-modal-btn"
-                    type="button"
-                    class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition duration-150 shadow-md disabled:bg-emerald-400"
-                >
-                    Save Budget
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Application Logic -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- Global Variables ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // --- Supabase and Firebase Initialization ---
-        
-        // =========================================================================
-        // !!! ⚠️ ⚠️ ⚠️  ACTION REQUIRED: PASTE YOUR FINAL CREDENTIALS BELOW ⚠️ ⚠️ ⚠️  !!!
-        // =========================================================================
-        
-        // 1. Find the URL in Supabase Dashboard (Settings -> API)
-        const SUPABASE_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co"; 
-        
-        // 2. Find the Anon Key in Supabase Dashboard (Settings -> API)
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzb2dqZmhydnp1d2VzaGxmcmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyODE0OTIsImV4cCI6MjA3NDg1NzQ5Mn0.X5cOGVh-oNpAsGydbvDiu59FBULi5dr-J6h5Jmwi_To"; 
-        
-        // 3. Edge Function URL
-        const PROXY_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy";
-
-        // =========================================================================
-        
-        // Supabase client is globally available via the script tag (window.supabase)
-        let supabaseClient;
-        let auth;
-        let userId = null;
-
-        // --- UI Elements ---
-        const configWarningEl = document.getElementById('config-warning');
-        const userIdEl = document.getElementById('user-id');
-        const budgetDisplayEl = document.getElementById('current-budget-display');
-        const spentDisplayEl = document.getElementById('total-spent-display');
-        const progressBarEl = document.getElementById('progress-bar');
-        const percentTextEl = document.getElementById('usage-percent-text');
-        const exceededWarningEl = document.getElementById('budget-exceeded-warning');
-        const openModalBtn = document.getElementById('open-modal-btn');
-        const runProxyTestBtn = document.getElementById('run-proxy-test-btn');
-        const proxyMessageEl = document.getElementById('proxy-message');
-
-        const modalEl = document.getElementById('budget-modal');
-        const modalBudgetEl = document.getElementById('modal-current-budget');
-        const modalBudgetValueEl = document.getElementById('modal-current-budget-value');
-        const modalInputEl = document.getElementById('budget-input');
-        const modalMessageEl = document.getElementById('modal-message');
-        const saveModalBtn = document.getElementById('save-modal-btn');
-        const cancelModalBtn = document.getElementById('cancel-modal-btn');
-
-        // --- State Variables ---
-        let currentBudget = null;
-        let totalSpent = 0;
-
-        // --- Core Functions ---
-
-        /**
-         * Initializes Firebase and authenticates the user.
-         */
-        async function initFirebaseAndAuth() {
-            try {
-                if (Object.keys(firebaseConfig).length === 0) {
-                    console.error("Firebase config is missing or invalid.");
-                    return;
-                }
-                
-                const app = initializeApp(firebaseConfig);
-                getFirestore(app); 
-                auth = getAuth(app);
-
-                // Check for required configuration
-                const isConfigReady = !SUPABASE_URL.includes("PASTE") && !SUPABASE_ANON_KEY.includes("PASTE") && PROXY_URL.startsWith('http');
-                
-                if (isConfigReady) {
-                    configWarningEl.classList.add('hidden');
-                } else {
-                    configWarningEl.textContent = '🚨 ACTION REQUIRED: Please fill in the SUPABASE_URL and SUPABASE_ANON_KEY in the code below!';
-                    console.warn("Configuration is incomplete. Please fill in SUPABASE_URL and SUPABASE_ANON_KEY.");
-                }
-
-                if (window.supabase && typeof window.supabase.createClient === 'function') {
-                    const finalSupabaseUrl = isConfigReady ? SUPABASE_URL : 'http://localhost';
-                    const finalSupabaseKey = isConfigReady ? SUPABASE_ANON_KEY : 'placeholder-key';
-                    
-                    supabaseClient = window.supabase.createClient(finalSupabaseUrl, finalSupabaseKey);
-                } else {
-                    console.error("Supabase client not loaded correctly.");
-                    return;
-                }
-
-                // Handle initial authentication
-                await new Promise((resolve) => {
-                    onAuthStateChanged(auth, async (user) => {
-                        if (user) {
-                            userId = user.uid;
-                        } else {
-                            userId = crypto.randomUUID(); 
-                            await signInAnonymously(auth);
-                        }
-                        userIdEl.textContent = userId;
-                        
-                        openModalBtn.disabled = !isConfigReady;
-                        runProxyTestBtn.disabled = !isConfigReady;
-                        
-                        resolve();
-                    });
-
-                    if (initialAuthToken) {
-                         signInWithCustomToken(auth, initialAuthToken).catch(e => console.error("Custom token sign-in failed:", e));
-                    } else {
-                         signInAnonymously(auth).catch(e => console.error("Anonymous sign-in failed:", e));
-                    }
-                });
-
-            } catch (error) {
-                console.error("Initialization Error:", error);
-            }
+    <script>
+        function log(message, isError = false) {
+            const output = document.getElementById('console-output');
+            output.textContent = message;
+            output.style.color = isError ? '#fca5a5' : '#4ade80'; // Red for error, Green for success
+            document.getElementById('status-indicator').textContent = isError ? 'Error' : 'Success';
         }
 
-        /**
-         * Fetches the budget limit and monthly spent from Supabase and updates the UI.
-         */
-        async function updateUI() {
-            const isFullyConfigured = !SUPABASE_URL.includes("PASTE") && !SUPABASE_ANON_KEY.includes("PASTE");
-            
-            if (!userId || !supabaseClient || !isFullyConfigured) {
-                 budgetDisplayEl.textContent = 'Config Required';
-                 spentDisplayEl.textContent = '$0.00';
-                 progressBarEl.style.width = '0%';
-                 percentTextEl.textContent = '0.0% Used';
-                 progressBarEl.className = 'h-2.5 rounded-full bg-gray-600 transition-all duration-300';
-                 exceededWarningEl.classList.add('hidden');
-                 return;
-            } 
+        async function runTest() {
+            const url = document.getElementById('proxy-url-input').value.trim();
+            const key = document.getElementById('anon-key-input').value.trim();
+            const prompt = document.getElementById('prompt-input').value.trim();
 
-            // 1. Fetch Budget Limit
-            try {
-                const { data, error } = await supabaseClient
-                    .from('budgets')
-                    .select('budget_limit') // Note: Matches corrected column name
-                    .eq('customer_id', userId)
-                    .single();
+            if (!url) return log("Error: URL is missing.", true);
+            if (!key) return log("Error: Anon Key is missing. Please paste it in the box above.", true);
 
-                if (error && error.code !== 'PGRST116') { 
-                    console.error("Error fetching budget limit:", error);
-                }
-                currentBudget = data ? data.budget_limit : null;
-            } catch (e) {
-                console.error("Fetch budget failed:", e);
-                currentBudget = null;
-            }
-
-            // 2. Fetch Total Spent
-            try {
-                const today = new Date();
-                const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString();
-
-                const { data, error } = await supabaseClient
-                    .from('usage_records')
-                    .select('total_cost')
-                    .eq('customer_id', userId)
-                    .gte('created_at', startOfMonth);
-
-                if (error) {
-                    console.error("Error fetching monthly spend:", error);
-                    totalSpent = 0;
-                } else {
-                    totalSpent = data.reduce((sum, record) => sum + record.total_cost, 0);
-                }
-            } catch (e) {
-                console.error("Fetch spent failed:", e);
-                totalSpent = 0;
-            }
-
-            // 3. Update Display
-            spentDisplayEl.textContent = `$${totalSpent.toFixed(2)}`;
-
-            if (currentBudget !== null) {
-                const budgetValue = parseFloat(currentBudget);
-                budgetDisplayEl.textContent = `$${budgetValue.toFixed(2)}`;
-                
-                const usagePercent = Math.min(100, (totalSpent / budgetValue) * 100);
-                percentTextEl.textContent = `${usagePercent.toFixed(1)}% Used`;
-                progressBarEl.style.width = `${usagePercent}%`;
-
-                if (usagePercent >= 90) {
-                    progressBarEl.className = 'h-2.5 rounded-full bg-red-500 transition-all duration-300';
-                } else if (usagePercent >= 70) {
-                    progressBarEl.className = 'h-2.5 rounded-full bg-yellow-500 transition-all duration-300';
-                } else {
-                    progressBarEl.className = 'h-2.5 rounded-full bg-emerald-600 transition-all duration-300';
-                }
-
-                if (usagePercent >= 100) {
-                    exceededWarningEl.classList.remove('hidden');
-                } else {
-                    exceededWarningEl.classList.add('hidden');
-                }
-            } else {
-                budgetDisplayEl.textContent = 'Not Set';
-                progressBarEl.style.width = '0%';
-                percentTextEl.textContent = '0.0% Used';
-                progressBarEl.className = 'h-2.5 rounded-full bg-gray-600 transition-all duration-300';
-                exceededWarningEl.classList.add('hidden');
-            }
-        }
-
-        /**
-         * Calls the AI Proxy.
-         */
-        async function handleGenerateContent() {
-             const isFullyConfigured = !SUPABASE_URL.includes("PASTE") && !SUPABASE_ANON_KEY.includes("PASTE");
-            
-            if (!PROXY_URL.startsWith('http') || !isFullyConfigured) {
-                proxyMessageEl.textContent = "🛑 Configuration not complete. Please fill in all Supabase URLs and Keys in the code.";
-                proxyMessageEl.className = 'mt-4 p-3 rounded-lg text-sm font-mono bg-red-900 text-red-200';
-                return;
-            }
-
-            proxyMessageEl.textContent = 'Calling AI Proxy...';
-            proxyMessageEl.className = 'mt-4 p-3 rounded-lg text-sm font-mono bg-gray-700 text-emerald-300';
-            
-            runProxyTestBtn.disabled = true;
-
-            const mockPrompt = "Why is semantic caching important for reducing LLM costs?";
-            const mockWorkflowId = "w-001";
-            const mockModel = "gemini-2.5-flash";
+            document.getElementById('run-test-btn').disabled = true;
+            document.getElementById('status-indicator').textContent = 'Running...';
+            log("Sending request...");
 
             try {
-                const response = await fetch(PROXY_URL, {
+                const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 
+                    headers: {
                         'Content-Type': 'application/json',
-                        // CRITICAL FIX: Add Authorization Header
-                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` 
+                        'Authorization': `Bearer ${key}` // <--- THIS FIXES THE 401 ERROR
                     },
                     body: JSON.stringify({
-                        customerId: userId,
-                        workflowId: mockWorkflowId,
-                        modelName: mockModel,
-                        prompt: mockPrompt,
-                    }),
+                        customerId: 'test-user-123',
+                        prompt: prompt
+                    })
                 });
 
                 const data = await response.json();
 
-                if (!response.ok) {
-                    if (response.status === 403 && data.blocked) {
-                         proxyMessageEl.textContent = `🛑 BUDGET BLOCK: ${data.error}`;
-                         proxyMessageEl.className = 'mt-4 p-3 rounded-lg text-sm font-mono bg-orange-900 text-orange-200';
-                         return;
-                    }
-                    throw new Error(`Proxy error: ${response.status} - ${data.error || 'Unknown Error'}`);
+                if (response.ok) {
+                    log(JSON.stringify(data, null, 2));
+                } else {
+                    log(`Error ${response.status}: ${data.error || data.message || response.statusText}`, true);
                 }
-                
-                await updateUI(); 
-
-                const status = data.cached ? '✅ CACHE HIT (Free)' : `💰 LIVE LLM CALL (Cost: $${data.cost.toFixed(6)})`;
-                proxyMessageEl.textContent = `Success: ${status}. Output: ${data.output.substring(0, 50)}...`;
-                proxyMessageEl.className = 'mt-4 p-3 rounded-lg text-sm font-mono bg-gray-700 text-emerald-300';
 
             } catch (error) {
-                console.error("API Call Error:", error);
-                proxyMessageEl.textContent = `❌ ERROR: Failed to call proxy. Check console.`;
-                proxyMessageEl.className = 'mt-4 p-3 rounded-lg text-sm font-mono bg-red-900 text-red-200';
+                log(`Network Error: ${error.message}. (Check CORS or URL)`, true);
             } finally {
-                runProxyTestBtn.disabled = false;
+                document.getElementById('run-test-btn').disabled = false;
             }
         }
-
-        /**
-         * Saves the new budget limit to Supabase.
-         */
-        async function handleSaveBudget() {
-            const isFullyConfigured = !SUPABASE_URL.includes("PASTE") && !SUPABASE_ANON_KEY.includes("PASTE");
-            
-            if (!userId || !supabaseClient || !isFullyConfigured) {
-                modalMessageEl.textContent = "Configuration error: Supabase connection is missing.";
-                modalMessageEl.className = 'text-sm font-medium text-red-600';
-                return;
-            }
-
-            const budgetValue = parseFloat(modalInputEl.value);
-            if (isNaN(budgetValue) || budgetValue <= 0) {
-                modalMessageEl.textContent = "Please enter a valid budget amount greater than $0.";
-                modalMessageEl.className = 'text-sm font-medium text-red-600';
-                return;
-            }
-
-            saveModalBtn.disabled = true;
-            modalMessageEl.textContent = 'Saving...';
-            modalMessageEl.className = 'text-sm font-medium text-gray-600';
-
-            try {
-                const budgetRecord = {
-                    customer_id: userId,
-                    budget_limit: budgetValue, // Matches corrected DB column
-                    updated_at: new Date().toISOString()
-                };
-
-                const { error } = await supabaseClient
-                    .from('budgets')
-                    .upsert(budgetRecord, { onConflict: 'customer_id' }); 
-
-                if (error) throw error;
-                
-
-                modalMessageEl.textContent = `Budget set to $${budgetValue.toFixed(2)} successfully!`;
-                modalMessageEl.className = 'text-sm font-medium text-green-600';
-                
-                await updateUI(); 
-                
-                setTimeout(() => {
-                    modalEl.classList.add('hidden');
-                }, 1500);
-
-            } catch (error) {
-                console.error("Error setting budget in Supabase:", error);
-                modalMessageEl.textContent = "Failed to save budget. See console for details.";
-                modalMessageEl.className = 'text-sm font-medium text-red-600';
-            } finally {
-                saveModalBtn.disabled = false;
-            }
-        }
-
-        /**
-         * Opens the budget modal.
-         */
-        function openModal() {
-            modalMessageEl.textContent = '';
-            modalMessageEl.className = '';
-
-            if (currentBudget !== null) {
-                modalBudgetValueEl.textContent = `$${parseFloat(currentBudget).toFixed(2)}`;
-                modalBudgetEl.classList.remove('hidden');
-                modalInputEl.value = parseFloat(currentBudget).toFixed(2);
-            } else {
-                modalBudgetEl.classList.add('hidden');
-                modalInputEl.value = '50.00'; // Default value
-            }
-
-            modalEl.classList.remove('hidden');
-        }
-
-        /**
-         * Closes the budget modal.
-         */
-        function closeModal() {
-            modalEl.classList.add('hidden');
-        }
-
-
-        // --- Event Listeners and Initialization ---
-
-        window.onload = async () => {
-            await initFirebaseAndAuth();
-            await updateUI();
-        };
-
-        openModalBtn.addEventListener('click', openModal);
-        cancelModalBtn.addEventListener('click', closeModal);
-        saveModalBtn.addEventListener('click', handleSaveBudget);
-        runProxyTestBtn.addEventListener('click', handleGenerateContent);
-
-        // Close modal on outside click (optional)
-        modalEl.addEventListener('click', (e) => {
-            if (e.target === modalEl) {
-                closeModal();
-            }
-        });
-
     </script>
 </body>
 </html>
