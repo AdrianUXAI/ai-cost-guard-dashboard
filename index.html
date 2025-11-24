@@ -4,13 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Cost Guard Dashboard</title>
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
-        .card { background-color: white; border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); padding: 1.5rem; }
-        .btn-primary { background-color: #4f46e5; color: white; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; }
-        .btn-primary:hover { background-color: #4338ca; }
-        .btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; }
+        /* Custom styles for aesthetics and responsive canvas */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-primary:disabled {
+            background-color: #a5b4fc;
+            cursor: not-allowed;
+        }
+        .progress-bar-container {
+            height: 1.5rem;
+            background-color: #e5e7eb;
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #10b981;
+            transition: width 0.5s ease-in-out;
+        }
+        .mock-id-text {
+            color: #ef4444; /* Red for Mock Mode */
+            font-weight: bold;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8 min-h-screen">
@@ -20,92 +61,433 @@
         <p class="text-lg text-indigo-600">Secure AI Gateway with Budget Control</p>
     </header>
 
-    <main class="max-w-4xl mx-auto space-y-6">
+    <main class="max-w-6xl mx-auto space-y-8">
 
-        <!-- Configuration Card -->
-        <div class="card bg-blue-50 border border-blue-200">
-            <h2 class="text-xl font-bold text-blue-800 mb-4">1. Configuration</h2>
+        <!-- User/Status Section -->
+        <div id="status-card" class="card grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+            <div>
+                <p class="text-sm font-semibold text-gray-500">User ID:</p>
+                <div id="user-id" class="text-base font-mono text-gray-700 truncate">
+                    Loading User...
+                </div>
+            </div>
+            <div class="md:col-span-2">
+                <p class="text-sm font-semibold text-gray-500">Supabase Edge Function URL:</p>
+                <input id="proxy-url-input" type="text" placeholder="Enter your deployed Supabase Function URL here..." 
+                       class="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-xs">
+            </div>
+        </div>
+
+        <!-- Budget Control Card -->
+        <div class="card">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">Budget Control</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-end">
+                <div>
+                    <label for="budget-input" class="block text-sm font-medium text-gray-700">Monthly Budget Limit (USD):</label>
+                    <input type="number" id="budget-input" min="0.01" step="0.01" value="5.00"
+                           class="mt-1 block w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button id="set-budget-btn" onclick="setBudget()" disabled 
+                            class="btn-primary w-full md:w-auto flex-grow disabled:opacity-50">
+                        Set Budget
+                    </button>
+                    <button id="reset-budget-btn" onclick="resetBudget()" disabled 
+                            class="p-3 border border-red-400 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                        Reset
+                    </button>
+                </div>
+                <div>
+                    <p class="text-sm font-medium text-gray-700">Current Limit:</p>
+                    <span id="current-budget" class="text-lg font-bold text-indigo-600">$0.00</span>
+                </div>
+            </div>
+
+            <!-- Usage Meter -->
+            <div class="mt-4">
+                <div class="flex justify-between mb-1">
+                    <span id="percent-used" class="text-xl font-bold text-gray-900">0.0%</span>
+                    <span class="text-sm font-medium text-gray-500">Used</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between mt-2 text-sm">
+                    <span class="text-gray-700">Spent This Month: <strong id="spent-amount">$0.00</strong></span>
+                    <span class="text-gray-700">Remaining: <strong id="remaining-amount">$0.00</strong></span>
+                </div>
+                <p class="mt-1 text-xs text-gray-500">*Cost calculated per API request (simulated in proxy).</p>
+            </div>
+        </div>
+
+        <!-- AI Proxy Test Section -->
+        <div class="card bg-indigo-50 border border-indigo-200">
+            <h2 class="text-2xl font-bold text-indigo-700 mb-4">Test AI Proxy (Cache & Cost Check)</h2>
+            <p class="text-gray-600 mb-4">
+                Click below to simulate a call to your deployed Supabase Edge Function. The function will check the budget,
+                call Gemini, apply caching, and calculate the cost.
+            </p>
+
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-semibold text-gray-700">Supabase Edge Function URL</label>
-                    <input id="proxy-url-input" type="text" 
-                           class="w-full p-2 border border-gray-300 rounded-lg"
-                           value="https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy">
+                    <label for="prompt-input" class="block text-sm font-medium text-gray-700">AI Prompt:</label>
+                    <textarea id="prompt-input" rows="3" placeholder="Enter prompt to send to the AI proxy (e.g., 'Write a short poem about coding')."
+                              class="mt-1 block w-full p-3 border border-indigo-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">What are the three core principles of the AI Cost Guard architecture?</textarea>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <button id="run-ai-test-btn" onclick="runAITest()" disabled class="btn-primary flex-grow disabled:opacity-50">
+                        Run AI Content Generation Test
+                    </button>
+                    <span id="test-status" class="ml-4 text-sm font-semibold text-gray-600">Waiting for user ID...</span>
+                </div>
+
+                <!-- Test Output Display -->
+                <div class="bg-white p-4 rounded-lg shadow-inner border border-indigo-300 space-y-3">
+                    <h3 class="font-semibold text-lg text-indigo-700 border-b pb-1">Test Output Box</h3>
+                    <p class="text-sm text-gray-700">Response Cost: <strong id="response-cost">$0.00</strong></p>
+                    <p class="text-sm text-gray-700">Cache Status: <strong id="cache-status">N/A</strong></p>
+                    <pre id="test-output-content" class="whitespace-pre-wrap p-3 bg-gray-50 border rounded text-xs text-gray-800 min-h-[100px]">Waiting for test run...</pre>
                 </div>
             </div>
         </div>
-
-        <!-- Test Section -->
-        <div class="card">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">2. Run AI Test</h2>
-            
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700">Prompt</label>
-                <textarea id="prompt-input" rows="2" class="w-full p-2 border border-gray-300 rounded-lg">Explain AI caching.</textarea>
-            </div>
-
-            <div class="flex items-center space-x-4">
-                <button id="run-test-btn" onclick="runTest()" class="btn-primary">
-                    Run Test
-                </button>
-                <span id="status-indicator" class="text-sm font-semibold text-gray-500">Ready</span>
-            </div>
-
-            <!-- Output -->
-            <div class="mt-6 bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm overflow-x-auto">
-                <p class="text-gray-400 mb-2">--- Console Output ---</p>
-                <pre id="console-output">Waiting for input...</pre>
-            </div>
-        </div>
-
     </main>
 
-    <script>
-        function log(message, isError = false) {
-            const output = document.getElementById('console-output');
-            output.textContent = message;
-            output.style.color = isError ? '#fca5a5' : '#4ade80'; 
-            document.getElementById('status-indicator').textContent = isError ? 'Error' : 'Success';
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- GLOBAL VARIABLES (Provided by Canvas) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-ai-cost-guard';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // --- Firebase/Auth State ---
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isMockMode = false;
+        
+        // State variables
+        let currentBudget = 0.00;
+        let spentAmount = 0.00;
+        let isAuthReady = false; // Used to guard Firestore/Mock operations
+
+        // --- Utility Functions ---
+
+        // Utility to update UI
+        function updateUI(budget, spent) {
+            currentBudget = budget;
+            spentAmount = spent;
+            
+            const remaining = Math.max(0, budget - spent);
+            const percentUsed = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+
+            document.getElementById('current-budget').textContent = `$${budget.toFixed(2)}`;
+            document.getElementById('spent-amount').textContent = `$${spent.toFixed(2)}`;
+            document.getElementById('remaining-amount').textContent = `$${remaining.toFixed(2)}`;
+            document.getElementById('percent-used').textContent = `${percentUsed.toFixed(1)}%`;
+            
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = `${percentUsed}%`;
+            progressBar.style.backgroundColor = percentUsed >= 95 ? '#ef4444' : (percentUsed >= 75 ? '#f59e0b' : '#10b981');
         }
 
-        async function runTest() {
-            const url = document.getElementById('proxy-url-input').value.trim();
-            const prompt = document.getElementById('prompt-input').value.trim();
-
-            if (!url) return log("Error: URL is missing.", true);
-
-            document.getElementById('run-test-btn').disabled = true;
-            document.getElementById('status-indicator').textContent = 'Running...';
-            log("Sending request...");
-
-            try {
-                // NOTE: Authorization header removed to match "No JWT Verification" setting
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        customerId: 'test-user-123',
-                        prompt: prompt
-                    })
-                });
-
-                const data = await response.json();
-
-                if (response.ok) {
-                    log(JSON.stringify(data, null, 2));
-                } else {
-                    // If 403, it's our budget guard working!
-                    log(`Status ${response.status}: ${data.error || data.message || response.statusText}`, response.status !== 403);
-                }
-
-            } catch (error) {
-                log(`Network Error: ${error.message}. (Check CORS or URL)`, true);
-            } finally {
-                document.getElementById('run-test-btn').disabled = false;
+        function alertUser(title, message) {
+            console.log(`[${title}]: ${message}`);
+            // Display message in test status field for critical errors
+            if (title === 'Critical Error' || title === 'Error') {
+                document.getElementById('test-status').textContent = `${title}: ${message.substring(0, 50)}...`;
             }
         }
+
+        function confirmUser(message) {
+            // Mock confirm for now as window.confirm() is blocked
+            return true; 
+        }
+
+        // --- Budget Handlers (Firestore and Mock) ---
+
+        function getBudgetDocRef(uid) {
+            // Path: /artifacts/{appId}/users/{userId}/budget/monthly
+            return doc(db, 'artifacts', appId, 'users', uid, 'budget', 'monthly');
+        }
+
+        // --- LocalStorage Mock Handlers ---
+        const MOCK_STORAGE_KEY = 'ai-cost-guard-mock-budget';
+        
+        function loadMockBudget() {
+            const stored = localStorage.getItem(MOCK_STORAGE_KEY);
+            if (stored) {
+                try {
+                    return JSON.parse(stored);
+                } catch (e) {
+                    console.error("Failed to parse mock budget from localStorage:", e);
+                    localStorage.removeItem(MOCK_STORAGE_KEY); // Clear bad data
+                }
+            }
+            // Default mock budget
+            return { limit: 5.00, spent: 0.00 }; 
+        }
+
+        function saveMockBudget(data) {
+            localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(data));
+            updateUI(data.limit, data.spent);
+        }
+
+        // --- Main Budget Initialization ---
+
+        async function initializeBudget(isMock = false) {
+            if (!userId || !isAuthReady) return;
+            isMockMode = isMock;
+            
+            const setBudgetButtonsEnabled = () => {
+                document.getElementById('set-budget-btn').disabled = false;
+                document.getElementById('reset-budget-btn').disabled = false;
+                document.getElementById('run-ai-test-btn').disabled = false;
+                document.getElementById('test-status').textContent = 'Ready to run.';
+            };
+            
+            if (isMock) {
+                // MOCK MODE: Use localStorage
+                const data = loadMockBudget();
+                updateUI(data.limit, data.spent);
+                setBudgetButtonsEnabled();
+            } else {
+                // FIREBASE MODE: Use onSnapshot
+                try {
+                    const budgetRef = getBudgetDocRef(userId);
+                    onSnapshot(budgetRef, (docSnap) => {
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            updateUI(data.limit || 0.00, data.spent || 0.00);
+                        } else {
+                            // Document doesn't exist, create default
+                            setDoc(budgetRef, { limit: 5.00, spent: 0.00, lastUpdated: new Date().toISOString() })
+                                .catch(e => console.error("Error creating default budget doc:", e));
+                            updateUI(5.00, 0.00);
+                        }
+                        setBudgetButtonsEnabled();
+                    }, (error) => {
+                        console.error("Firestore Listener Error:", error);
+                        document.getElementById('user-id').textContent = `Listener Error: ${error.message}`;
+                    });
+                } catch (e) {
+                    console.error("Error initializing Firestore budget listener:", e);
+                }
+            }
+        }
+        
+        window.setBudget = async function() {
+            if (!isAuthReady) {
+                alertUser('Error', 'System not ready.');
+                return;
+            }
+            const newLimit = parseFloat(document.getElementById('budget-input').value);
+            if (isNaN(newLimit) || newLimit <= 0) {
+                alertUser('Error', 'Please enter a valid budget limit greater than zero.');
+                return;
+            }
+            
+            try {
+                if (isMockMode) {
+                    const data = loadMockBudget();
+                    saveMockBudget({ limit: newLimit, spent: data.spent });
+                    alertUser('Success', `(Mock Mode) Budget limit set to $${newLimit.toFixed(2)}.`);
+                } else {
+                    // Firestore Update
+                    const budgetRef = getBudgetDocRef(userId);
+                    await updateDoc(budgetRef, { limit: newLimit, lastUpdated: new Date().toISOString() });
+                    alertUser('Success', `Monthly budget limit set to $${newLimit.toFixed(2)}.`);
+                }
+            } catch (e) {
+                console.error("Error setting budget:", e);
+                alertUser('Error', `Failed to set budget: ${e.message}`);
+            }
+        }
+
+        window.resetBudget = async function() {
+            if (!isAuthReady) {
+                alertUser('Error', 'System not ready.');
+                return;
+            }
+            if (confirmUser("Are you sure you want to reset your monthly spending to $0.00?")) {
+                try {
+                    if (isMockMode) {
+                        const data = loadMockBudget();
+                        saveMockBudget({ limit: data.limit, spent: 0.00 });
+                        alertUser('Success', `(Mock Mode) Monthly spending reset to $0.00.`);
+                    } else {
+                        // Firestore Update
+                        const budgetRef = getBudgetDocRef(userId);
+                        await updateDoc(budgetRef, { spent: 0.00, lastReset: new Date().toISOString() });
+                        alertUser('Success', `Monthly spending reset to $0.00.`);
+                    }
+                } catch (e) {
+                    console.error("Error resetting budget:", e);
+                    alertUser('Error', `Failed to reset budget: ${e.message}`);
+                }
+            }
+        }
+
+        // --- Core Proxy Logic ---
+        window.runAITest = async function() {
+            const prompt = document.getElementById('prompt-input').value;
+            const proxyUrl = document.getElementById('proxy-url-input').value;
+
+            // Use the real UID if available, otherwise use the mock/placeholder ID.
+            const customerId = userId || 'anonymous-test-user-id';
+            
+            if (!proxyUrl.startsWith('http')) {
+                alertUser('Configuration Error', 'Please enter a valid Supabase Edge Function URL (e.g., https://<your-project>.supabase.co/functions/v1/ai-proxy).');
+                document.getElementById('test-status').textContent = 'Error: Invalid URL';
+                return;
+            }
+
+            document.getElementById('test-status').textContent = 'Calling Proxy...';
+            document.getElementById('test-output-content').textContent = 'Processing request...';
+            document.getElementById('response-cost').textContent = '$0.00';
+            document.getElementById('cache-status').textContent = 'N/A';
+            document.getElementById('run-ai-test-btn').disabled = true; // Disable during execution
+
+            try {
+                // Simple exponential backoff retry mechanism for API call
+                let response;
+                let result;
+                let attempts = 0;
+                const maxAttempts = 3;
+
+                while (attempts < maxAttempts) {
+                    attempts++;
+                    try {
+                        response = await fetch(proxyUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ customerId: customerId, prompt: prompt })
+                        });
+                        
+                        // Try to parse JSON for both success and error responses
+                        try {
+                            result = await response.json();
+                        } catch (e) {
+                            // If it's not JSON (e.g., CORS error response), treat as a network issue
+                            throw new Error(`Non-JSON response received from proxy (Status: ${response.status})`);
+                        }
+                        
+                        if (response.ok) {
+                            break; // Success
+                        } else if (response.status === 403) {
+                            // Budget Exceeded - critical success case for cost guard
+                            document.getElementById('test-status').textContent = 'BUDGET BLOCKED (403)';
+                            document.getElementById('test-output-content').textContent = `Transaction Blocked. ${result.error || 'Budget Limit Exceeded.'}`;
+                            return;
+                        } else {
+                            // Non-critical API error, retry
+                            throw new Error(`Proxy call failed (Status: ${response.status}): ${result.error || 'Unknown Error'}`);
+                        }
+
+                    } catch (e) {
+                        // Log retry attempt, but don't stop the loop if max attempts not reached
+                        if (attempts < maxAttempts) {
+                            const delay = Math.pow(2, attempts) * 500;
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        } else {
+                            throw e; // Re-throw last error after max attempts
+                        }
+                    }
+                }
+
+                // Update UI based on successful proxy response
+                if (result.error) {
+                    document.getElementById('test-status').textContent = 'Proxy Error';
+                    document.getElementById('test-output-content').textContent = `Proxy returned error: ${result.error}`;
+                } else {
+                    document.getElementById('test-status').textContent = 'Success';
+                    document.getElementById('test-output-content').textContent = result.output;
+                    document.getElementById('response-cost').textContent = `$${(result.cost || 0).toFixed(3)}`;
+                    document.getElementById('cache-status').textContent = result.cached ? 'HIT' : 'MISS';
+                    
+                    // Update budget display from proxy response data
+                    if(result.spent !== undefined) {
+                        updateUI(result.limit || currentBudget, result.spent);
+                        
+                        // If in mock mode, update localStorage to reflect the new spent amount
+                        if (isMockMode) {
+                            saveMockBudget({ limit: result.limit || currentBudget, spent: result.spent });
+                        }
+                    }
+                }
+
+            } catch (e) {
+                console.error("AI Proxy Test Failed:", e);
+                document.getElementById('test-status').textContent = 'Network/Fatal Error';
+                document.getElementById('test-output-content').textContent = `Fatal Error: Failed to fetch. Check console for details. (Likely CORS or URL issue)`;
+            } finally {
+                document.getElementById('run-ai-test-btn').disabled = false; // Re-enable
+            }
+        }
+
+
+        // --- Auth/Initialization Setup ---
+        async function setupFirebase() {
+            if (!firebaseConfig) {
+                // --- MOCK MODE FALLBACK ---
+                isMockMode = true;
+                userId = 'mock-user-123';
+                document.getElementById('user-id').innerHTML = '<span class="mock-id-text">Mock User ID:</span> mock-user-123';
+                isAuthReady = true;
+                initializeBudget(true); // Initialize in mock mode
+                alertUser('Critical Error', 'Running in Mock Mode. Firebase config missing.');
+                return;
+            }
+
+            // --- FIREBASE MODE ---
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                await setPersistence(auth, browserSessionPersistence);
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('user-id').textContent = userId;
+                        initializeBudget(false); // Start listening for budget changes
+                    } else {
+                        userId = null;
+                        document.getElementById('user-id').textContent = 'Not Authenticated. Waiting for platform token.';
+                    }
+                    isAuthReady = true;
+                });
+
+            } catch (e) {
+                console.error("Firebase Initialization Failed:", e);
+                document.getElementById('user-id').textContent = `Auth Failed: ${e.message}`;
+                alertUser('Critical Error', `Firebase initialization failed. ${e.message}`);
+                
+                // Allow proxy testing even if auth fails, using a default anonymous ID
+                isAuthReady = true; 
+                userId = 'anonymous-auth-failed';
+                document.getElementById('run-ai-test-btn').disabled = false;
+                document.getElementById('test-status').textContent = 'Auth Failed, Test Button Enabled.';
+            }
+        }
+
+        setupFirebase();
     </script>
+
 </body>
 </html>
