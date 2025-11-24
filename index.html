@@ -29,15 +29,8 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700">Supabase Edge Function URL</label>
                     <input id="proxy-url-input" type="text" 
-                           placeholder="https://[project-ref].supabase.co/functions/v1/ai-proxy" 
                            class="w-full p-2 border border-gray-300 rounded-lg"
                            value="https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy">
-                </div>
-                <div>
-                    <label class="block text-sm font-semibold text-gray-700">Supabase Anon Key (Required for Auth)</label>
-                    <input id="anon-key-input" type="password" 
-                           placeholder="Paste your 'anon' public key here (starts with eyJ...)" 
-                           class="w-full p-2 border border-gray-300 rounded-lg">
                 </div>
             </div>
         </div>
@@ -71,28 +64,26 @@
         function log(message, isError = false) {
             const output = document.getElementById('console-output');
             output.textContent = message;
-            output.style.color = isError ? '#fca5a5' : '#4ade80'; // Red for error, Green for success
+            output.style.color = isError ? '#fca5a5' : '#4ade80'; 
             document.getElementById('status-indicator').textContent = isError ? 'Error' : 'Success';
         }
 
         async function runTest() {
             const url = document.getElementById('proxy-url-input').value.trim();
-            const key = document.getElementById('anon-key-input').value.trim();
             const prompt = document.getElementById('prompt-input').value.trim();
 
             if (!url) return log("Error: URL is missing.", true);
-            if (!key) return log("Error: Anon Key is missing. Please paste it in the box above.", true);
 
             document.getElementById('run-test-btn').disabled = true;
             document.getElementById('status-indicator').textContent = 'Running...';
             log("Sending request...");
 
             try {
+                // NOTE: Authorization header removed to match "No JWT Verification" setting
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${key}` // <--- THIS FIXES THE 401 ERROR
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
                         customerId: 'test-user-123',
@@ -105,7 +96,8 @@
                 if (response.ok) {
                     log(JSON.stringify(data, null, 2));
                 } else {
-                    log(`Error ${response.status}: ${data.error || data.message || response.statusText}`, true);
+                    // If 403, it's our budget guard working!
+                    log(`Status ${response.status}: ${data.error || data.message || response.statusText}`, response.status !== 403);
                 }
 
             } catch (error) {
