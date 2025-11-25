@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,9 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Cost Guard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- Load Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #111827; color: white; }
@@ -36,7 +35,6 @@
             </div>
             
             <div class="flex items-center gap-4">
-                <!-- Language Selector -->
                 <select id="lang-selector" onchange="changeLanguage(this.value)" class="bg-gray-800 text-white text-sm border border-gray-600 rounded p-1 focus:ring-emerald-500">
                     <option value="en">🇺🇸 English</option>
                     <option value="es">🇪🇸 Español</option>
@@ -52,14 +50,12 @@
             </div>
         </header>
 
-        <!-- CONFIG WARNING -->
         <div id="config-warning" class="bg-red-900/50 border border-red-500 p-4 rounded-lg text-red-200 hidden">
-            🚨 <strong>Action Required:</strong> Edit this file and fill in SUPABASE_URL / KEY / PROXY_URL.
+            🚨 <strong>Action Required:</strong> Edit this file and fill in SUPABASE_URL / KEY.
         </div>
 
         <!-- === TAB: DASHBOARD === -->
         <div id="tab-dashboard" class="space-y-6">
-            <!-- STATUS PANEL -->
             <div class="card grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <p class="text-sm text-gray-400" data-i18n="monthly_limit">Monthly Limit</p>
@@ -74,7 +70,6 @@
                 </div>
             </div>
 
-            <!-- USAGE METER -->
             <div class="card">
                 <div class="flex justify-between mb-2">
                     <span class="text-sm text-gray-400" data-i18n="utilization">Budget Utilization</span>
@@ -85,7 +80,6 @@
                 </div>
             </div>
 
-            <!-- TEST INTERFACE -->
             <div class="card">
                 <h2 class="text-xl font-bold mb-4 text-white flex items-center gap-2">
                     <i data-lucide="play-circle"></i> <span data-i18n="test_title">Live Proxy Test</span>
@@ -93,13 +87,13 @@
                 <textarea id="prompt-input" rows="2" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-white mb-4" placeholder="Ask the AI something..."></textarea>
                 <button id="btn-run-test" onclick="runProxyTest()" class="btn btn-primary w-full" data-i18n="run_test">Run Generation</button>
                 
-                <div class="mt-4 bg-black rounded p-4 font-mono text-xs text-green-400 h-32 overflow-y-auto border border-gray-700" id="console-output">
+                <div class="mt-4 bg-black rounded p-4 font-mono text-xs text-green-400 h-48 overflow-y-auto border border-gray-700" id="console-output">
                     <div class="text-gray-500">> System Ready.</div>
                 </div>
             </div>
         </div>
 
-        <!-- === TAB: REPORTS (Gamma) === -->
+        <!-- === TAB: REPORTS === -->
         <div id="tab-reports" class="space-y-6 hidden">
             <div class="card">
                 <div class="flex justify-between items-center mb-6">
@@ -131,6 +125,7 @@
                             <tr>
                                 <th class="px-4 py-3">Date</th>
                                 <th class="px-4 py-3">Model</th>
+                                <th class="px-4 py-3">Type</th>
                                 <th class="px-4 py-3 text-right">Cost</th>
                             </tr>
                         </thead>
@@ -144,8 +139,6 @@
 
         <!-- === TAB: SETTINGS === -->
         <div id="tab-settings" class="space-y-6 hidden">
-            
-            <!-- Subscription -->
             <div class="card border border-indigo-500/30 bg-indigo-900/10">
                 <div class="flex justify-between items-center">
                     <div>
@@ -159,8 +152,6 @@
                     </button>
                 </div>
             </div>
-
-            <!-- Custom Models -->
             <div class="card">
                 <h2 class="text-xl font-bold mb-4 text-white" data-i18n="custom_models">Custom Models (Offline/Local)</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -174,7 +165,6 @@
 
     </div>
 
-    <!-- BUDGET MODAL -->
     <div id="budget-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
         <div class="bg-gray-800 p-6 rounded-lg w-full max-w-sm border border-gray-600">
             <h3 class="text-lg font-bold mb-4" data-i18n="set_budget_title">Set Monthly Budget</h3>
@@ -191,7 +181,7 @@
         const SUPABASE_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzb2dqZmhydnp1d2VzaGxmcmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyODE0OTIsImV4cCI6MjA3NDg1NzQ5Mn0.X5cOGVh-oNpAsGydbvDiu59FBULi5dr-J6h5Jmwi_To"; 
         const PROXY_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy";
-        const STRIPE_LINK = "https://buy.stripe.com/fZu9AV1Ol8Kx1argozfjG00"; // Your payment link
+        const STRIPE_LINK = "https://buy.stripe.com/fZu9AV1Ol8Kx1argozfjG00"; 
 
         // --- 2. TRANSLATIONS ---
         const translations = {
@@ -229,11 +219,9 @@
             }
         };
 
-        // --- 3. STATE ---
         let supabase, userId, currentLimit = 50.00, totalSpent = 0.00, transactions = [];
         let currentLang = 'en';
 
-        // --- 4. UI LOGIC ---
         function switchTab(tabId) {
             ['dashboard', 'reports', 'settings'].forEach(t => {
                 document.getElementById(`tab-${t}`).classList.add('hidden');
@@ -252,7 +240,6 @@
                 const key = el.getAttribute('data-i18n');
                 if (t[key]) el.textContent = t[key];
             });
-            // Update placeholders
             const promptInput = document.getElementById('prompt-input');
             if(lang === 'es') promptInput.placeholder = "Pregunta algo a la IA...";
             else if(lang === 'pt') promptInput.placeholder = "Pergunte algo à IA...";
@@ -270,7 +257,6 @@
         function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-        // --- 5. INITIALIZATION ---
         async function init() {
             lucide.createIcons();
             if (SUPABASE_KEY.includes('PASTE_YOUR')) return document.getElementById('config-warning').classList.remove('hidden');
@@ -282,7 +268,6 @@
             await fetchData();
         }
 
-        // --- 6. DATA FETCHING ---
         async function fetchData() {
             const { data: bData } = await supabase.from('budgets').select('budget_limit').eq('customer_id', userId).maybeSingle();
             currentLimit = bData ? bData.budget_limit : 50.00;
@@ -309,7 +294,6 @@
             document.getElementById('usage-percent').textContent = `${pct.toFixed(1)}% Used`;
         }
 
-        // --- 7. FEATURE LOGIC ---
         function renderReports() {
             const cacheHits = transactions.filter(t => t.total_cost === 0).length;
             const estSavings = cacheHits * 0.10; 
@@ -378,6 +362,7 @@
             const btn = document.getElementById('btn-run-test');
             btn.disabled = true; btn.textContent = "Running...";
             log("Calling AI Proxy...");
+
             try {
                 const res = await fetch(PROXY_URL, {
                     method: 'POST',
@@ -385,11 +370,21 @@
                     body: JSON.stringify({ customerId: userId, prompt: prompt })
                 });
                 const data = await res.json();
-                if (res.status === 403) log(`🛑 BLOCKED: ${data.error}`, true);
-                else if (res.ok) { log(`✅ SUCCESS! Cost: $${data.cost}`); await fetchData(); }
-                else log(`Error: ${data.error}`, true);
-            } catch (e) { log(`Network Error: ${e.message}`, true); }
-            finally { btn.disabled = false; btn.textContent = "Run Generation"; }
+                
+                if (res.status === 403) {
+                    log(`🛑 BLOCKED: ${data.error}`, true);
+                } else if (res.ok) {
+                    log(`✅ SUCCESS! Cost: $${data.cost}`);
+                    log(`Output: "${data.output}"`); // ADDED BACK: Show actual AI output
+                    await fetchData(); 
+                } else {
+                    log(`Error: ${data.error}`, true);
+                }
+            } catch (e) {
+                log(`Network Error: ${e.message}`, true);
+            } finally {
+                btn.disabled = false; btn.textContent = "Run Generation";
+            }
         }
 
         window.onload = init;
