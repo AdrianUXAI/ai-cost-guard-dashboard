@@ -4,86 +4,169 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Cost Guard</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Supabase JS -->
+    <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #111827; color: white; }
         .card { background-color: #1f2937; border: 1px solid #374151; border-radius: 0.5rem; padding: 1.5rem; }
-        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: bold; transition: all 0.2s; }
+        .btn { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: bold; transition: all 0.2s; cursor: pointer; }
         .btn-primary { background-color: #059669; color: white; }
         .btn-primary:hover { background-color: #047857; }
-        .btn-disabled { background-color: #4b5563; cursor: not-allowed; opacity: 0.5; }
+        .btn-secondary { background-color: #4b5563; color: white; }
+        .btn-secondary:hover { background-color: #374151; }
+        .nav-item { cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.375rem; color: #9ca3af; }
+        .nav-item.active { background-color: #374151; color: white; font-weight: bold; }
+        .hidden { display: none; }
     </style>
 </head>
 <body class="p-6">
 
-    <div class="max-w-4xl mx-auto space-y-8">
-        <header class="border-b border-gray-700 pb-4">
-            <h1 class="text-4xl font-extrabold text-emerald-400">AI Cost Guard</h1>
-            <p class="text-gray-400 mt-2">Real-time Budget Protection & Caching</p>
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- HEADER & NAV -->
+        <header class="border-b border-gray-700 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-extrabold text-emerald-400 flex items-center gap-2">
+                    <i data-lucide="shield-check"></i> AI Cost Guard
+                </h1>
+                <p class="text-gray-400 text-sm mt-1">User: <span id="user-id-display" class="font-mono text-yellow-400">Loading...</span></p>
+            </div>
+            <nav class="flex gap-2 bg-gray-800 p-1 rounded-lg">
+                <div id="nav-dashboard" class="nav-item active" onclick="switchTab('dashboard')">Dashboard</div>
+                <div id="nav-reports" class="nav-item" onclick="switchTab('reports')">Reports</div>
+                <div id="nav-settings" class="nav-item" onclick="switchTab('settings')">Settings</div>
+            </nav>
         </header>
 
-        <!-- CONFIGURATION WARNING -->
+        <!-- CONFIG WARNING -->
         <div id="config-warning" class="bg-red-900/50 border border-red-500 p-4 rounded-lg text-red-200 hidden">
+            🚨 <strong>Action Required:</strong> Edit this file and fill in SUPABASE_URL / KEY / PROXY_URL.
         </div>
 
-        <!-- STATUS PANEL -->
-        <div class="card grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <p class="text-sm text-gray-400">User ID</p>
-                <p id="user-id-display" class="font-mono text-yellow-400 text-sm break-all">Connecting...</p>
+        <!-- === TAB: DASHBOARD === -->
+        <div id="tab-dashboard" class="space-y-6">
+            <!-- STATUS PANEL -->
+            <div class="card grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="text-sm text-gray-400">Monthly Limit</p>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span id="budget-display" class="text-4xl font-bold text-white">---</span>
+                        <button onclick="openModal('budget-modal')" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-gray-300">Edit</button>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-400">Current Spend</p>
+                    <p id="spent-display" class="text-4xl font-bold text-emerald-400">$0.00</p>
+                </div>
             </div>
-            <div class="text-right">
-                <p class="text-sm text-gray-400">Monthly Limit</p>
-                <div class="flex items-center justify-end gap-2">
-                    <span id="budget-display" class="text-3xl font-bold text-white">---</span>
-                    <button id="btn-edit-budget" class="text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">Edit</button>
+
+            <!-- USAGE METER -->
+            <div class="card">
+                <div class="flex justify-between mb-2">
+                    <span class="text-sm text-gray-400">Budget Utilization</span>
+                    <span id="usage-percent" class="text-sm font-bold text-white">0%</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
+                    <div id="progress-bar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- TEST INTERFACE -->
+            <div class="card">
+                <h2 class="text-xl font-bold mb-4 text-white flex items-center gap-2">
+                    <i data-lucide="play-circle"></i> Live Proxy Test
+                </h2>
+                <textarea id="prompt-input" rows="2" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-white mb-4" placeholder="Ask the AI something..."></textarea>
+                <button id="btn-run-test" onclick="runProxyTest()" class="btn btn-primary w-full">Run Generation</button>
+                
+                <div class="mt-4 bg-black rounded p-4 font-mono text-xs text-green-400 h-32 overflow-y-auto border border-gray-700" id="console-output">
+                    <div class="text-gray-500">> System Ready.</div>
                 </div>
             </div>
         </div>
 
-        <!-- USAGE METER -->
-        <div class="card">
-            <div class="flex justify-between mb-2">
-                <span class="text-sm text-gray-400">Current Spending</span>
-                <span id="spent-display" class="text-xl font-bold text-white">$0.00</span>
+        <!-- === TAB: REPORTS (Gamma) === -->
+        <div id="tab-reports" class="space-y-6 hidden">
+            <div class="card">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-white">Client Report Generator</h2>
+                    <button onclick="generateGammaReport()" class="btn bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2">
+                        <i data-lucide="copy"></i> Copy for Gamma
+                    </button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                    <div class="bg-gray-800 p-4 rounded border border-gray-600">
+                        <p class="text-gray-400 text-xs uppercase">Total Investment</p>
+                        <p id="report-total" class="text-2xl font-bold text-white">$0.00</p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded border border-gray-600">
+                        <p class="text-gray-400 text-xs uppercase">Est. Savings (Cache)</p>
+                        <p id="report-savings" class="text-2xl font-bold text-green-400">$0.00</p>
+                    </div>
+                    <div class="bg-gray-800 p-4 rounded border border-gray-600">
+                        <p class="text-gray-400 text-xs uppercase">Efficiency Score</p>
+                        <p id="report-efficiency" class="text-2xl font-bold text-blue-400">0%</p>
+                    </div>
+                </div>
+
+                <h3 class="text-lg font-bold text-gray-300 mb-3">Recent Transactions</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-gray-400">
+                        <thead class="bg-gray-800 text-gray-200 uppercase font-medium">
+                            <tr>
+                                <th class="px-4 py-3">Date</th>
+                                <th class="px-4 py-3">Model</th>
+                                <th class="px-4 py-3">Type</th>
+                                <th class="px-4 py-3 text-right">Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody id="report-table-body" class="divide-y divide-gray-700">
+                            <tr><td colspan="4" class="px-4 py-4 text-center">Loading data...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <div class="w-full bg-gray-700 rounded-full h-4 overflow-hidden">
-                <div id="progress-bar" class="bg-emerald-500 h-full transition-all duration-500" style="width: 0%"></div>
-            </div>
-            <p id="usage-percent" class="text-xs text-right text-gray-400 mt-1">0% Used</p>
         </div>
 
-        <!-- TEST INTERFACE -->
-        <div class="card">
-            <h2 class="text-xl font-bold mb-4 text-emerald-400">Test AI Proxy</h2>
-            <textarea id="prompt-input" rows="2" class="w-full bg-gray-800 border border-gray-600 rounded p-3 text-white mb-4" placeholder="Enter a prompt for the AI..."></textarea>
-            
-            <button id="btn-run-test" class="btn btn-primary w-full">Run AI Generation Test</button>
+        <!-- === TAB: SETTINGS (Offline Models) === -->
+        <div id="tab-settings" class="space-y-6 hidden">
+            <div class="card">
+                <h2 class="text-xl font-bold mb-4 text-white">Custom Models (Offline/Local)</h2>
+                <p class="text-gray-400 text-sm mb-4">Add your own rates for local models like Llama 3 via Ollama.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <input type="text" id="model-name" placeholder="Model Name (e.g. Llama-3)" class="bg-gray-800 border border-gray-600 rounded p-2 text-white">
+                    <input type="number" id="model-rate" placeholder="Rate ($)" class="bg-gray-800 border border-gray-600 rounded p-2 text-white">
+                    <button onclick="addCustomModel()" class="btn btn-primary">Add Model</button>
+                </div>
 
-            <div class="mt-6 bg-black rounded p-4 font-mono text-xs text-green-400 h-48 overflow-y-auto border border-gray-700">
-                <p class="text-gray-500 mb-2">--- SYSTEM LOGS ---</p>
-                <div id="console-output"></div>
+                <div id="custom-models-list" class="space-y-2">
+                    <!-- Models injected here -->
+                </div>
             </div>
         </div>
+
     </div>
 
     <!-- BUDGET MODAL -->
-    <div id="modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center">
+    <div id="budget-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center z-50">
         <div class="bg-gray-800 p-6 rounded-lg w-full max-w-sm border border-gray-600">
-            <h3 class="text-lg font-bold mb-4">Set New Budget</h3>
-            <input type="number" id="new-budget-input" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white mb-4" placeholder="e.g. 5.00">
+            <h3 class="text-lg font-bold mb-4">Set Monthly Budget</h3>
+            <input type="number" id="new-budget-input" class="w-full bg-gray-700 border border-gray-600 rounded p-2 text-white mb-4" placeholder="e.g. 50.00">
             <div class="flex justify-end gap-2">
-                <button id="btn-cancel" class="btn bg-gray-600 hover:bg-gray-500 text-white">Cancel</button>
-                <button id="btn-save" class="btn btn-primary">Save</button>
+                <button onclick="closeModal('budget-modal')" class="btn btn-secondary">Cancel</button>
+                <button onclick="saveBudget()" class="btn btn-primary">Save</button>
             </div>
         </div>
     </div>
 
     <script>
-        // --- 1. CONFIGURATION ---
-        // REPLACE THESE VALUES WITH YOUR REAL SUPABASE DETAILS
+        // --- 1. CONFIGURATION (FILL THESE!) ---
         const SUPABASE_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzb2dqZmhydnp1d2VzaGxmcmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyODE0OTIsImV4cCI6MjA3NDg1NzQ5Mn0.X5cOGVh-oNpAsGydbvDiu59FBULi5dr-J6h5Jmwi_To";
         const PROXY_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy";
@@ -92,8 +175,22 @@
         let supabase;
         let userId;
         let currentLimit = 50.00;
+        let totalSpent = 0.00;
+        let transactions = [];
 
-        // --- 3. LOGGING ---
+        // --- 3. UI LOGIC ---
+        function switchTab(tabId) {
+            ['dashboard', 'reports', 'settings'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`nav-${t}`).classList.remove('active');
+            });
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            document.getElementById(`nav-${tabId}`).classList.add('active');
+            
+            if (tabId === 'reports') renderReports();
+            if (tabId === 'settings') fetchCustomModels();
+        }
+
         function log(msg, isError = false) {
             const div = document.createElement('div');
             div.textContent = `> ${msg}`;
@@ -101,139 +198,175 @@
             document.getElementById('console-output').prepend(div);
         }
 
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
         // --- 4. INITIALIZATION ---
         async function init() {
-            if (SUPABASE_KEY.includes('PASTE_YOUR')) {
-                document.getElementById('config-warning').classList.remove('hidden');
-                return log("ERROR: Please update the SUPABASE_KEY in the code!", true);
-            }
+            lucide.createIcons();
+            if (SUPABASE_KEY.includes('PASTE_YOUR')) return document.getElementById('config-warning').classList.remove('hidden');
 
-            try {
-                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                
-                // Simple Anonymous Login using LocalStorage ID
-                userId = localStorage.getItem('acg_uid');
-                if (!userId) {
-                    userId = crypto.randomUUID();
-                    localStorage.setItem('acg_uid', userId);
-                }
-                
-                document.getElementById('user-id-display').textContent = userId;
-                log(`Connected as User: ${userId.substring(0, 8)}...`);
-                
-                await fetchDashboardData();
-            } catch (e) {
-                log(`Init Failed: ${e.message}`, true);
-            }
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            userId = localStorage.getItem('acg_uid') || crypto.randomUUID();
+            localStorage.setItem('acg_uid', userId);
+            document.getElementById('user-id-display').textContent = userId.substring(0,8)+'...';
+
+            await fetchData();
         }
 
-        // --- 5. DATA SYNC ---
-        async function fetchDashboardData() {
-            // 1. Get Budget
-            const { data: bData } = await supabase
-                .from('budgets')
-                .select('budget_limit')
-                .eq('customer_id', userId)
-                .maybeSingle();
-            
+        // --- 5. DATA FETCHING ---
+        async function fetchData() {
+            // 1. Budget
+            const { data: bData } = await supabase.from('budgets').select('budget_limit').eq('customer_id', userId).maybeSingle();
             currentLimit = bData ? bData.budget_limit : 50.00;
-            
-            // 2. Get Spend
-            const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-            const { data: uData } = await supabase
-                .from('usage_records')
-                .select('total_cost')
-                .eq('customer_id', userId)
-                .gte('created_at', startOfMonth);
-            
-            const spent = uData ? uData.reduce((acc, r) => acc + r.total_cost, 0) : 0;
 
-            updateUI(currentLimit, spent);
+            // 2. Usage Records (Fetch all for reports)
+            const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+            const { data: uData } = await supabase.from('usage_records')
+                .select('*')
+                .eq('customer_id', userId)
+                .gte('created_at', startOfMonth)
+                .order('created_at', { ascending: false });
+            
+            transactions = uData || [];
+            totalSpent = transactions.reduce((acc, r) => acc + r.total_cost, 0);
+
+            updateDashboardUI();
         }
 
-        function updateUI(limit, spent) {
-            document.getElementById('budget-display').textContent = `$${limit.toFixed(2)}`;
-            document.getElementById('spent-display').textContent = `$${spent.toFixed(2)}`;
+        function updateDashboardUI() {
+            document.getElementById('budget-display').textContent = `$${currentLimit.toFixed(2)}`;
+            document.getElementById('spent-display').textContent = `$${totalSpent.toFixed(2)}`;
             
-            const pct = limit > 0 ? Math.min((spent / limit) * 100, 100) : 0;
+            const pct = currentLimit > 0 ? Math.min((totalSpent / currentLimit) * 100, 100) : 0;
             const bar = document.getElementById('progress-bar');
             bar.style.width = `${pct}%`;
-            
-            if (pct >= 100) bar.className = 'h-full transition-all duration-500 bg-red-600';
-            else if (pct >= 80) bar.className = 'h-full transition-all duration-500 bg-yellow-500';
-            else bar.className = 'h-full transition-all duration-500 bg-emerald-500';
-            
+            bar.className = `h-full transition-all duration-500 ${pct >= 90 ? 'bg-red-600' : 'bg-emerald-500'}`;
             document.getElementById('usage-percent').textContent = `${pct.toFixed(1)}% Used`;
         }
 
-        // --- 6. ACTIONS ---
+        // --- 6. REPORTS LOGIC ---
+        function renderReports() {
+            // Calculate Savings (Mock logic: Assume cache hits save $0.10)
+            const cacheHits = transactions.filter(t => t.total_cost === 0).length;
+            const estSavings = cacheHits * 0.10; 
+            const hitRate = transactions.length > 0 ? (cacheHits / transactions.length) * 100 : 0;
+
+            document.getElementById('report-total').textContent = `$${totalSpent.toFixed(2)}`;
+            document.getElementById('report-savings').textContent = `$${estSavings.toFixed(2)}`;
+            document.getElementById('report-efficiency').textContent = `${hitRate.toFixed(1)}%`;
+
+            // Table
+            const tbody = document.getElementById('report-table-body');
+            tbody.innerHTML = transactions.slice(0, 5).map(t => `
+                <tr class="border-b border-gray-700">
+                    <td class="px-4 py-3">${new Date(t.created_at).toLocaleDateString()}</td>
+                    <td class="px-4 py-3">${t.model_name}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs ${t.total_cost === 0 ? 'bg-blue-900 text-blue-200' : 'bg-gray-700 text-gray-300'}">${t.total_cost === 0 ? 'CACHE' : 'LIVE'}</span></td>
+                    <td class="px-4 py-3 text-right text-emerald-400">$${t.total_cost.toFixed(4)}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function generateGammaReport() {
+            const reportText = `
+# Monthly AI Report for User ${userId.substring(0,6)}
+
+## 💰 Financial Overview
+- **Total Investment:** $${totalSpent.toFixed(2)}
+- **Cost Savings:** $${(transactions.filter(t => t.total_cost === 0).length * 0.10).toFixed(2)} (realized via caching)
+
+## ⚡ Performance
+- **Efficiency Score:** ${(transactions.length > 0 ? (transactions.filter(t => t.total_cost === 0).length / transactions.length * 100) : 0).toFixed(1)}%
+- **Total Transactions:** ${transactions.length}
+
+## 📉 Insight
+AI Cost Guard actively monitored your budget of $${currentLimit.toFixed(2)}.
+`.trim();
+            
+            try {
+                await navigator.clipboard.writeText(reportText);
+                alert("Report copied! Paste into Gamma.app 'Generate from notes'.");
+            } catch (err) {
+                alert("Failed to copy: " + err);
+            }
+        }
+
+        // --- 7. CUSTOM MODELS LOGIC ---
+        async function fetchCustomModels() {
+            const { data } = await supabase.from('custom_models').select('*').eq('customer_id', userId);
+            const list = document.getElementById('custom-models-list');
+            list.innerHTML = (data || []).map(m => `
+                <div class="flex justify-between bg-gray-800 p-3 rounded border border-gray-600 items-center">
+                    <div>
+                        <p class="font-bold">${m.model_name}</p>
+                        <p class="text-xs text-gray-400">$${m.cost_rate} / ${m.unit_type}</p>
+                    </div>
+                    <button class="text-red-400 text-xs hover:text-red-300">Remove</button>
+                </div>
+            `).join('') || '<p class="text-gray-500 text-sm">No custom models yet.</p>';
+        }
+
+        async function addCustomModel() {
+            const name = document.getElementById('model-name').value;
+            const rate = parseFloat(document.getElementById('model-rate').value);
+            
+            if (!name || !rate) return alert("Invalid input");
+
+            const { error } = await supabase.from('custom_models').insert({
+                customer_id: userId,
+                model_name: name,
+                cost_rate: rate,
+                unit_type: 'request' // Default for demo
+            });
+
+            if (error) alert("Error: " + error.message);
+            else {
+                document.getElementById('model-name').value = '';
+                document.getElementById('model-rate').value = '';
+                fetchCustomModels();
+            }
+        }
+
+        // --- 8. ACTIONS ---
         async function saveBudget() {
             const val = parseFloat(document.getElementById('new-budget-input').value);
-            if (!val || val <= 0) return alert("Invalid amount");
-            
-            document.getElementById('modal').classList.add('hidden');
-            log(`Saving budget limit: $${val}...`);
-
-            // UPSERT to Supabase
-            const { error } = await supabase
-                .from('budgets')
-                .upsert({ customer_id: userId, budget_limit: val, updated_at: new Date() }, { onConflict: 'customer_id' });
-
-            if (error) {
-                log(`Save Error: ${error.message}`, true);
-            } else {
-                log("Budget saved to database!");
-                await fetchDashboardData(); // Refresh UI
-            }
+            if (!val || val <= 0) return;
+            closeModal('budget-modal');
+            await supabase.from('budgets').upsert({ customer_id: userId, budget_limit: val, updated_at: new Date() }, { onConflict: 'customer_id' });
+            await fetchData();
         }
 
         async function runProxyTest() {
             const prompt = document.getElementById('prompt-input').value;
             const btn = document.getElementById('btn-run-test');
-            
-            btn.disabled = true;
-            btn.textContent = "Running...";
+            btn.disabled = true; btn.textContent = "Running...";
             log("Calling AI Proxy...");
 
             try {
                 const res = await fetch(PROXY_URL, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${SUPABASE_KEY}` // Auth header
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ customerId: userId, prompt: prompt })
                 });
-
                 const data = await res.json();
-
+                
                 if (res.status === 403) {
                     log(`🛑 BLOCKED: ${data.error}`, true);
                 } else if (res.ok) {
                     log(`✅ SUCCESS! Cost: $${data.cost} | Cached: ${data.cached}`);
-                    log(`Output: "${data.output.substring(0, 50)}..."`);
-                    // Auto-refresh dashboard data
-                    if (data.spent !== undefined) updateUI(data.limit, data.spent);
+                    await fetchData(); // Refresh UI
                 } else {
-                    log(`Server Error: ${data.error || res.statusText}`, true);
+                    log(`Error: ${data.error}`, true);
                 }
-
             } catch (e) {
                 log(`Network Error: ${e.message}`, true);
             } finally {
-                btn.disabled = false;
-                btn.textContent = "Run AI Generation Test";
+                btn.disabled = false; btn.textContent = "Run Generation";
             }
         }
 
-        // --- 7. EVENT LISTENERS ---
-        document.getElementById('btn-edit-budget').onclick = () => document.getElementById('modal').classList.remove('hidden');
-        document.getElementById('btn-cancel').onclick = () => document.getElementById('modal').classList.add('hidden');
-        document.getElementById('btn-save').onclick = saveBudget;
-        document.getElementById('btn-run-test').onclick = runProxyTest;
-        
         window.onload = init;
-
     </script>
 </body>
 </html>
