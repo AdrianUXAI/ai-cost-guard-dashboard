@@ -10,6 +10,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Stripe JS (Required for payments) -->
+    <script src="https://js.stripe.com/v3/"></script>
+    
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #111827; color: white; }
         .card { background-color: #1f2937; border: 1px solid #374151; border-radius: 0.5rem; padding: 1.5rem; }
@@ -18,6 +21,8 @@
         .btn-primary:hover { background-color: #047857; }
         .btn-secondary { background-color: #4b5563; color: white; }
         .btn-secondary:hover { background-color: #374151; }
+        .btn-stripe { background-color: #635bff; color: white; }
+        .btn-stripe:hover { background-color: #4b45c6; }
         .nav-item { cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.375rem; color: #9ca3af; }
         .nav-item.active { background-color: #374151; color: white; font-weight: bold; }
         .hidden { display: none; }
@@ -44,7 +49,7 @@
 
         <!-- CONFIG WARNING -->
         <div id="config-warning" class="bg-red-900/50 border border-red-500 p-4 rounded-lg text-red-200 hidden">
-            🚨 <strong>Action Required:</strong> Edit this file and fill in SUPABASE_URL / KEY / PROXY_URL.
+            🚨 <strong>Action Required:</strong> Edit this file and fill in SUPABASE_URL / KEY.
         </div>
 
         <!-- === TAB: DASHBOARD === -->
@@ -89,7 +94,7 @@
             </div>
         </div>
 
-        <!-- === TAB: REPORTS (Gamma) === -->
+        <!-- === TAB: REPORTS === -->
         <div id="tab-reports" class="space-y-6 hidden">
             <div class="card">
                 <div class="flex justify-between items-center mb-6">
@@ -121,7 +126,6 @@
                             <tr>
                                 <th class="px-4 py-3">Date</th>
                                 <th class="px-4 py-3">Model</th>
-                                <th class="px-4 py-3">Type</th>
                                 <th class="px-4 py-3 text-right">Cost</th>
                             </tr>
                         </thead>
@@ -133,8 +137,25 @@
             </div>
         </div>
 
-        <!-- === TAB: SETTINGS (Offline Models) === -->
+        <!-- === TAB: SETTINGS (Stripe Added!) === -->
         <div id="tab-settings" class="space-y-6 hidden">
+            
+            <!-- Subscription Card -->
+            <div class="card border border-indigo-500/30 bg-indigo-900/10">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i data-lucide="credit-card"></i> Pro Subscription
+                        </h2>
+                        <p class="text-gray-400 text-sm mt-1">Increase budget limits and unlock advanced analytics.</p>
+                    </div>
+                    <button onclick="redirectToStripe()" class="btn btn-stripe flex items-center gap-2">
+                        Upgrade to Pro
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Models Card -->
             <div class="card">
                 <h2 class="text-xl font-bold mb-4 text-white">Custom Models (Offline/Local)</h2>
                 <p class="text-gray-400 text-sm mb-4">Add your own rates for local models like Llama 3 via Ollama.</p>
@@ -166,10 +187,14 @@
     </div>
 
     <script>
-        // --- 1. CONFIGURATION (FILL THESE!) ---
+        // --- 1. CONFIGURATION ---
+        // !!! PASTE YOUR KEYS BELOW !!!
         const SUPABASE_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co";
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzb2dqZmhydnp1d2VzaGxmcmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyODE0OTIsImV4cCI6MjA3NDg1NzQ5Mn0.X5cOGVh-oNpAsGydbvDiu59FBULi5dr-J6h5Jmwi_To";
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRzb2dqZmhydnp1d2VzaGxmcmZ1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkyODE0OTIsImV4cCI6MjA3NDg1NzQ5Mn0.X5cOGVh-oNpAsGydbvDiu59FBULi5dr-J6h5Jmwi_To"; 
         const PROXY_URL = "https://tsogjfhrvzuweshlfrfu.supabase.co/functions/v1/ai-proxy";
+        
+        // Stripe Payment Link
+        const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/fZu9AV1Ol8Kx1argozfjG00"; 
 
         // --- 2. STATE ---
         let supabase;
@@ -216,11 +241,9 @@
 
         // --- 5. DATA FETCHING ---
         async function fetchData() {
-            // 1. Budget
             const { data: bData } = await supabase.from('budgets').select('budget_limit').eq('customer_id', userId).maybeSingle();
             currentLimit = bData ? bData.budget_limit : 50.00;
 
-            // 2. Usage Records (Fetch all for reports)
             const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
             const { data: uData } = await supabase.from('usage_records')
                 .select('*')
@@ -247,7 +270,6 @@
 
         // --- 6. REPORTS LOGIC ---
         function renderReports() {
-            // Calculate Savings (Mock logic: Assume cache hits save $0.10)
             const cacheHits = transactions.filter(t => t.total_cost === 0).length;
             const estSavings = cacheHits * 0.10; 
             const hitRate = transactions.length > 0 ? (cacheHits / transactions.length) * 100 : 0;
@@ -256,13 +278,11 @@
             document.getElementById('report-savings').textContent = `$${estSavings.toFixed(2)}`;
             document.getElementById('report-efficiency').textContent = `${hitRate.toFixed(1)}%`;
 
-            // Table
             const tbody = document.getElementById('report-table-body');
             tbody.innerHTML = transactions.slice(0, 5).map(t => `
                 <tr class="border-b border-gray-700">
                     <td class="px-4 py-3">${new Date(t.created_at).toLocaleDateString()}</td>
                     <td class="px-4 py-3">${t.model_name}</td>
-                    <td class="px-4 py-3"><span class="px-2 py-1 rounded text-xs ${t.total_cost === 0 ? 'bg-blue-900 text-blue-200' : 'bg-gray-700 text-gray-300'}">${t.total_cost === 0 ? 'CACHE' : 'LIVE'}</span></td>
                     <td class="px-4 py-3 text-right text-emerald-400">$${t.total_cost.toFixed(4)}</td>
                 </tr>
             `).join('');
@@ -317,7 +337,7 @@ AI Cost Guard actively monitored your budget of $${currentLimit.toFixed(2)}.
                 customer_id: userId,
                 model_name: name,
                 cost_rate: rate,
-                unit_type: 'request' // Default for demo
+                unit_type: 'request'
             });
 
             if (error) alert("Error: " + error.message);
@@ -328,7 +348,16 @@ AI Cost Guard actively monitored your budget of $${currentLimit.toFixed(2)}.
             }
         }
 
-        // --- 8. ACTIONS ---
+        // --- 8. STRIPE LOGIC ---
+        function redirectToStripe() {
+            if (STRIPE_PAYMENT_LINK.includes('PASTE_YOUR')) {
+                alert("Please configure the Stripe Payment Link in the code!");
+                return;
+            }
+            window.open(STRIPE_PAYMENT_LINK, '_blank');
+        }
+
+        // --- 9. ACTIONS ---
         async function saveBudget() {
             const val = parseFloat(document.getElementById('new-budget-input').value);
             if (!val || val <= 0) return;
@@ -346,7 +375,7 @@ AI Cost Guard actively monitored your budget of $${currentLimit.toFixed(2)}.
             try {
                 const res = await fetch(PROXY_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_KEY}` },
                     body: JSON.stringify({ customerId: userId, prompt: prompt })
                 });
                 const data = await res.json();
